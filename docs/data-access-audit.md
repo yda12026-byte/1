@@ -1,6 +1,6 @@
 # 金融数据访问验证
 
-验证时间：2026-09-25 23:54 至 2026-09-26 00:03（北京时间）。这里只记录权限、数量和字段结构，不保存原始行情、财务数据或授权值。样本股 `600519.SH` 仅用于验证权限，尚未选定为产品标的。
+验证时间：2026-09-25 23:54 至 2026-09-26 00:13（北京时间）。这里只记录权限、数量和字段结构，不保存原始行情、财务数据或授权值。样本股 `600519.SH` 仅用于验证权限，尚未选定为产品标的。
 
 ## 扶摇 REST API
 
@@ -16,10 +16,13 @@
 - 安装后的 `listTools('stock')` 自检成功（HTTP 200，10 个工具）。`index` 3 个、`edb` 2 个、`news` 3 个、`global_stock` 5 个工具也可列出。
 - 实际调用 `get_stock_info` 与 `search_news` 均返回 HTTP 200、非错误且有非空内容。未将返回原文写入仓库。
 - 项目 `.env` 提供 `IFIND_MCP_AUTH_TOKEN` 与 `IFIND_MCP_URL`；可用 `node scripts/probe-ifind.mjs` 复查。Web 产品尚未实现 iFinD 数据适配层。
+- 另外已将用户提供的 9 个 Streamable HTTP 服务注册到本机 Codex 用户配置 `C:\Users\qyw\.codex\config.toml`，使用各自 URL 和 Authorization 请求头；改动前的配置已在同目录备份。`codex mcp list --json` 能解析并显示 9 个服务均为启用状态。
+- 2026-09-26 00:13 对这 9 个服务逐一执行 MCP `initialize` 与 `tools/list`，全部返回 HTTP 200，工具数量依次为：综合 9、企业 2、法律 6、股票 10、基金 8、经济数据 2、资讯 3、债券 5、指数 3。当前已启动的 Codex 任务未动态加载新工具，需要新任务或重启 Codex 后在工具列表中确认。
 
 ## 安全与边界
 
 - `.env` 被 Git 忽略；iFinD Skill 的 `mcp_config.json` 位于用户本机的 Codex Skill 目录，不在项目仓库。
+- Codex 用户配置含授权请求头，位于仓库之外；不得把它或其备份加入 Git。
 - 这次验证证明当前凭据和样本接口可用；不代表所有接口、时点和数据使用场景均已授权。产品调用要逐接口检查业务错误和数据缺失。
 - iFinD 授权可能随账户状态变化，部署时需在平台环境变量中配置，不得提交到公开仓库。
 
@@ -30,3 +33,4 @@
 - [扶摇财报接口](https://fuyao.aicubes.cn/docs/api-reference/financials/)
 - [扶摇估值接口](https://fuyao.aicubes.cn/docs/api-reference/valuations/)
 - [iFinD Skill 安装指南](https://mcp.51ifind.com/gwstatic/static/ds_web/ifind-mcp-web/skills/SKILL_INSTALL_GUIDE.md)
+- [Codex 配置参考：MCP 服务与 HTTP 请求头](https://developers.openai.com/codex/config-reference)

@@ -19,10 +19,15 @@ if (!token || !unifiedUrl) {
 }
 
 const services = {
+  unified: 'hexin-ifind-ds-mcp',
+  enterprise: 'kuaicha-enterprise-mcp',
+  law: 'hexin-law-mcp',
   stock: 'hexin-ifind-ds-stock-mcp',
+  fund: 'hexin-ifind-ds-fund-mcp',
   index: 'hexin-ifind-ds-index-mcp',
   edb: 'hexin-ifind-ds-edb-mcp',
   news: 'hexin-ifind-ds-news-mcp',
+  bond: 'hexin-ifind-ds-bond-mcp',
   global_stock: 'hexin-ifind-ds-global-stock-mcp',
 };
 const selected = process.argv.slice(2);
