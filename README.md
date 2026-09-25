@@ -22,7 +22,7 @@
 - [worklog/](docs/worklog/)：按日期记录进度和验证结果
 - [decisions/](docs/decisions/)：关键决策及理由
 - [docs/data-contract.md](docs/data-contract.md)：证据与数据字段约定
-- [天齐锂业筛选后字段候选表](docs/field-candidates-002466-v2.md)：保留 51 项，供下一轮审阅；[原表及排除标记](docs/field-candidates-002466.md)
+- [天齐锂业当前字段候选表](docs/field-candidates-002466-v2.md)：按筛选前范围恢复为 72 条，移除暂不开放外部接入的主力资金能力；[原始表及旧标记](docs/field-candidates-002466.md)仅作历史记录。
 - [docs/test-plan.md](docs/test-plan.md)：测试计划与结果
 - [docs/ai-use-and-validation.md](docs/ai-use-and-validation.md)：AI 使用及人工验证记录
 - `src/`：产品代码；`tests/`：测试；`scripts/`：辅助脚本；`data/fixtures/`：可公开的测试样本
