@@ -4,11 +4,15 @@
 
 ## 当前状态
 
-项目骨架已建立，本地 DeepSeek LLM 配置已通过连接与最小调用验证；金融数据接口、个股、技术栈和部署地址尚待验证与确定。此 README 会随实现补充启动方式、数据来源、AI 的角色和已知边界。
+项目骨架已建立。DeepSeek、扶摇和 iFinD 的本地访问已通过最小调用验证；目标个股、技术栈和部署地址尚待确定。此 README 会随实现补充启动方式、数据来源、AI 的角色和已知边界。
 
 ## 本地 LLM 环境变量
 
 项目后续的 LLM 调用使用 `DEEPSEEK_API_KEY`、`DEEPSEEK_BASE_URL` 和 `DEEPSEEK_MODEL`。非密钥配置示例见 [.env.example](.env.example)，模型选择见 [决策记录](docs/decisions/0002-deepseek-llm.md)。本地 `.env` 与原始 `apikey.md` 均被 Git 忽略；部署时应在平台的环境变量设置中填写密钥，不上传这两个文件。
+
+## 金融数据访问
+
+扶摇使用本地 `.env` 中的 `FUYAO_API_KEY` 和 `FUYAO_BASE_URL`；iFinD 使用 `IFIND_MCP_AUTH_TOKEN` 和 `IFIND_MCP_URL`。访问审计见 [数据权限验证记录](docs/data-access-audit.md)。可分别运行 `node scripts/probe-fuyao.mjs 600519.SH` 和 `node scripts/probe-ifind.mjs` 复查权限。两个探测脚本只输出状态、数量和字段名，不输出密钥或完整数据。项目 Web 端的数据适配层尚待实现。
 
 ## 工作区导航
 

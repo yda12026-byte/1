@@ -3,6 +3,7 @@
 .env.*
 !.env.example
 /apikey.md
+mcp_config.json
 *.pem
 *.key
 
