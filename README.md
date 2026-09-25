@@ -22,6 +22,7 @@
 - [worklog/](docs/worklog/)：按日期记录进度和验证结果
 - [decisions/](docs/decisions/)：关键决策及理由
 - [docs/data-contract.md](docs/data-contract.md)：证据与数据字段约定
+- [天齐锂业字段候选表](docs/field-candidates-002466.md)：七个诊断维度的可勾选字段与数据可用性
 - [docs/test-plan.md](docs/test-plan.md)：测试计划与结果
 - [docs/ai-use-and-validation.md](docs/ai-use-and-validation.md)：AI 使用及人工验证记录
 - `src/`：产品代码；`tests/`：测试；`scripts/`：辅助脚本；`data/fixtures/`：可公开的测试样本
