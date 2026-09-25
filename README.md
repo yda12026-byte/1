@@ -16,6 +16,7 @@
 
 ## 工作区导航
 
+- [AGENTS.md](AGENTS.md)：新会话接手顺序、当前决策与实施约定
 - [题目原文](docs/03_个股多维诊断与证据验证.md)：线上笔试要求
 - [ARCHITECTURE.md](docs/ARCHITECTURE.md)：架构草案与数据流
 - [todo/TODO.md](docs/todo/TODO.md)：任务与交付检查表
