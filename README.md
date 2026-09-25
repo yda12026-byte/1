@@ -4,7 +4,7 @@
 
 ## 当前状态
 
-项目骨架已建立。DeepSeek、扶摇和 iFinD 的本地访问已通过最小调用验证；目标个股、技术栈和部署地址尚待确定。此 README 会随实现补充启动方式、数据来源、AI 的角色和已知边界。
+项目骨架已建立。目标个股确定为**天齐锂业（002466.SZ）**；选择理由见[决策记录](docs/decisions/0003-target-stock.md)。DeepSeek、扶摇和 iFinD 的本地访问已通过最小调用验证；技术栈和部署地址尚待确定。此 README 会随实现补充启动方式、数据来源、AI 的角色和已知边界。
 
 ## 本地 LLM 环境变量
 
@@ -12,7 +12,7 @@
 
 ## 金融数据访问
 
-扶摇使用本地 `.env` 中的 `FUYAO_API_KEY` 和 `FUYAO_BASE_URL`；iFinD 使用 `IFIND_MCP_AUTH_TOKEN` 和 `IFIND_MCP_URL`。访问审计见 [数据权限验证记录](docs/data-access-audit.md)。可分别运行 `node scripts/probe-fuyao.mjs 600519.SH` 和 `node scripts/probe-ifind.mjs` 复查权限。两个探测脚本只输出状态、数量和字段名，不输出密钥或完整数据。项目 Web 端的数据适配层尚待实现。
+扶摇使用本地 `.env` 中的 `FUYAO_API_KEY` 和 `FUYAO_BASE_URL`；iFinD 使用 `IFIND_MCP_AUTH_TOKEN` 和 `IFIND_MCP_URL`。访问审计见 [数据权限验证记录](docs/data-access-audit.md)。可分别运行 `node scripts/probe-fuyao.mjs 002466.SZ` 和 `node scripts/probe-ifind.mjs` 复查权限。两个探测脚本只输出状态、数量和字段名，不输出密钥或完整数据。项目 Web 端的数据适配层尚待实现。
 
 ## 工作区导航
 
