@@ -8,10 +8,11 @@
 
 ## 工作区导航
 
-- [ARCHITECTURE.md](ARCHITECTURE.md)：架构草案与数据流
-- [todo/TODO.md](todo/TODO.md)：任务与交付检查表
-- [worklog/](worklog/)：按日期记录进度和验证结果
-- [decisions/](decisions/)：关键决策及理由
+- [题目原文](docs/03_个股多维诊断与证据验证.md)：线上笔试要求
+- [ARCHITECTURE.md](docs/ARCHITECTURE.md)：架构草案与数据流
+- [todo/TODO.md](docs/todo/TODO.md)：任务与交付检查表
+- [worklog/](docs/worklog/)：按日期记录进度和验证结果
+- [decisions/](docs/decisions/)：关键决策及理由
 - [docs/data-contract.md](docs/data-contract.md)：证据与数据字段约定
 - [docs/test-plan.md](docs/test-plan.md)：测试计划与结果
 - [docs/ai-use-and-validation.md](docs/ai-use-and-validation.md)：AI 使用及人工验证记录
