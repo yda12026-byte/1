@@ -4,7 +4,11 @@
 
 ## 当前状态
 
-项目骨架已建立；数据接口、个股、技术栈和部署地址尚待验证与确定。此 README 会随实现补充启动方式、环境变量、数据来源、AI 的角色和已知边界。
+项目骨架已建立，本地 DeepSeek LLM 配置已通过连接与最小调用验证；金融数据接口、个股、技术栈和部署地址尚待验证与确定。此 README 会随实现补充启动方式、数据来源、AI 的角色和已知边界。
+
+## 本地 LLM 环境变量
+
+项目后续的 LLM 调用使用 `DEEPSEEK_API_KEY`、`DEEPSEEK_BASE_URL` 和 `DEEPSEEK_MODEL`。非密钥配置示例见 [.env.example](.env.example)，模型选择见 [决策记录](docs/decisions/0002-deepseek-llm.md)。本地 `.env` 与原始 `apikey.md` 均被 Git 忽略；部署时应在平台的环境变量设置中填写密钥，不上传这两个文件。
 
 ## 工作区导航
 
