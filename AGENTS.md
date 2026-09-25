@@ -22,23 +22,25 @@
 - 当前表恢复了筛选前的 72 条范围。原组合项“异动原因 / 主力资金”只保留**个股异动原因**。扶摇[主力资金文档](https://fuyao.aicubes.cn/docs/api-reference/capital-flow/)注明暂未开放外部接入，项目不接入该能力。
 - 72 条是当前实施范围，但“已取值”“可计算”“部分可用”“待核”“当前未取得”含义不同。部分字段需要报告原文、统一口径或计算，不能因列在表中就展示为已证实结论。
 - 最新实测及限制写在字段表和数据访问审计中。例如自由现金流近似值依赖 `act_cash_flow_net - pay_fixed_assets_etc_cash`；公告检索片段不等于完整公告；`report_date_ms` 不可未经核对当成实际披露日。
-- 财务趋势、估值、行情、行业、事件和风险数据需注明来源、获取/披露时点、报告期、单位、统计口径、查询参数和状态。缺失、冲突、过期、接口失败均显式呈现，不能默认为正常或零。
+- 财务趋势、估值、行情、行业、事件和风险数据需注明来源、获取/披露时点、报告期、单位、统计口径、查询参数和状态。缺失、冲突、下载失败均显式呈现，不能默认为正常或零；固定快照须展示其时点，不称实时或最新。
 - 指标和比值由程序确定性计算，并记录输入和公式。LLM 只解释经过校验的证据，区分 `fact`、`inference`、`unknown`，以及正面、负面、矛盾、未知证据；关键结论能钻取到原始字段或公告原文。不得生成确定性涨跌预测、收益承诺或直接买卖建议。
 
 ## 4. 本地环境与调用
 
-- 环境变量名称见 [`.env.example`](.env.example)。真实 `.env` 和根目录 `apikey.md` 已被 `.gitignore` 排除；不得打印、复制到文档、提交或送到客户端。部署时用平台环境变量，服务端调用金融数据和 LLM。
+- 环境变量名称见 [`.env.example`](.env.example)。真实 `.env` 和根目录 `apikey.md` 已被 `.gitignore` 排除；不得打印、复制到文档、提交或送到客户端。当前独立下载任务调用金融数据，提问路径只读已发布快照；部署时凭据只放平台环境变量，LLM 仍由服务端调用。
 - LLM 使用用户指定的 DeepSeek-V4.1-Flash；已验证的 API 模型名为 `deepseek-flash`，相关变量是 `DEEPSEEK_API_KEY`、`DEEPSEEK_BASE_URL`、`DEEPSEEK_MODEL`。见 [`docs/decisions/0002-deepseek-llm.md`](docs/decisions/0002-deepseek-llm.md)。
-- 扶摇使用 `FUYAO_API_KEY`、`FUYAO_BASE_URL`；iFinD 使用 `IFIND_MCP_AUTH_TOKEN`、`IFIND_MCP_URL`。可用 `node scripts/probe-fuyao.mjs 002466.SZ` 和 `node scripts/probe-ifind.mjs` 复核基础权限。探测脚本不输出密钥或完整数据。
+- 扶摇使用 `FUYAO_API_KEY`、`FUYAO_BASE_URL`；iFinD 使用 `IFIND_MCP_AUTH_TOKEN`、`IFIND_MCP_URL`。可用 `py scripts/probe_fuyao.py 002466.SZ` 和 `py scripts/probe_ifind.py` 复核基础权限。探测脚本不输出密钥或完整数据。
+- 当前一次性下载入口是 `py scripts/download_data.py`，只发布两项扶摇年报字段到 Git 忽略的 `data/cache/`；文件已存在时不再下载或覆盖。`py scripts/diagnose_profit_cash.py` 只读固定快照，可用 `DIAGNOSIS_SNAPSHOT_PATH` 指定服务器私有文件。快照不自动过期；iFinD 产品字段尚未纳入。完整产品数据须另行一次性准备，见决策 0006。
+- 产品数据截止日是 2026-08-31，统一观察区间是 2025-08-31 至 2026-08-31；同比基期可早于窗口。2026 年 8 月的实验数据保存在 Git 忽略的 `data/raw/experiment-2026-08/`，由 `py scripts/experiment_august_data.py` 取得；它不是产品发布快照。见[决策 0007](docs/decisions/0007-observation-window.md)及[实验审计](docs/experiments/2026-08-one-month-data-audit.md)。
 - 本机已安装 iFinD Skill：`C:\Users\qyw\.codex\skills\ifind-finance-data\SKILL.md`；另配置了 iFinD MCP 服务。换会话时先确认这些能力仍可用，再按 Skill 的服务文档、并发与查询要求调用。扶摇/iFinD 的实时权限、返回结构和数值以本次请求为准。
 - 不在公开仓库保存原始受限行情、财报批量响应、授权头或用户隐私；可公开的构造测试样本放 `data/fixtures/`。
 
 ## 5. 实施与验证约定
 
-- **技术语言偏好：除 HTML 前端（含必要的 CSS、浏览器 JavaScript）外，能用 Python 实现的后端、数据适配、指标计算、LLM 调用、自动化脚本和测试都优先用 Python。** 只有 Python 明显不适合或现有依赖要求其他语言时才例外，并在决策记录写明理由。已有 `.mjs` 探测脚本或进行中的原型不因这条偏好而直接覆盖、删除；先核对工作树与实现状态，再决定如何迁移或集成。见 [`docs/decisions/0004-python-default.md`](docs/decisions/0004-python-default.md)。
+- **技术语言偏好：除 HTML 前端（含必要的 CSS、浏览器 JavaScript）外，能用 Python 实现的后端、数据适配、指标计算、LLM 调用、自动化脚本和测试都优先用 Python。** 只有 Python 明显不适合或现有依赖要求其他语言时才例外，并在决策记录写明理由。原有 Node 探测脚本已在验证等价 Python 实现后移除；现有核心后端见 `src/diagnosis/`。见 [`docs/decisions/0004-python-default.md`](docs/decisions/0004-python-default.md)。
 - 实现状态以当前工作树、提交和验证结果为准；`src/` 可能有进行中的代码。先检查实际目录，勿把草稿或未提交原型当作已交付的 Web 产品。
 - 参照 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) 的数据适配 → 校验/计算 → 证据组织 → LLM 解读 → Web 展示主链路。架构草案可调整；重大选择记入 [`docs/decisions/`](docs/decisions/)。
-- 测试至少覆盖正常主链路、证据钻取、缺失/失败/过期/冲突、零分母或极端值、合规边界及公开部署可操作性；结果写入 [`docs/test-plan.md`](docs/test-plan.md)。AI 参与和人工纠错写入 [`docs/ai-use-and-validation.md`](docs/ai-use-and-validation.md)。
+- 测试至少覆盖正常主链路、证据钻取、缺失/下载失败/冲突、固定快照时点、零分母或极端值、合规边界及公开部署可操作性；结果写入 [`docs/test-plan.md`](docs/test-plan.md)。AI 参与和人工纠错写入 [`docs/ai-use-and-validation.md`](docs/ai-use-and-validation.md)。
 - 修改前检查 `git status`，尊重用户直接编辑的 Markdown；不对未知改动执行 `reset`、强制覆盖或清理。提交前运行相关检查、`git diff --check` 并检查待提交内容无密钥或受限数据。仓库远端是 `https://github.com/yda12026-byte/1.git`；同步时正常提交并推送，勿强推。
 
 ## 6. 文档清单与维护规则
@@ -54,7 +56,7 @@
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | 当前系统结构、模块边界和数据流 | 选定技术栈、增加/改变模块、接口、部署方式或证据流时更新；区分“计划”和“已实现”，让图文与代码一致。 |
 | [`docs/decisions/`](docs/decisions/) | 关键选择的理由及影响；格式见 [`docs/decisions/README.md`](docs/decisions/README.md) | 标的、数据源、口径/公式、同行组、LLM 分工、技术栈或部署方案出现实质选择时，新建递增编号的 `000N-*.md`，写日期、状态、选择、理由、替代方案与影响。决定改变时追加新记录并标注旧记录被取代，保留决策脉络。 |
 | [`docs/field-candidates-002466-v2.md`](docs/field-candidates-002466-v2.md) | 当前 72 条字段范围与可用性 | 字段增删、分组、来源、公式、实际可用性或证据缺口变化时逐行更新，并核对总数与结论。[原始表](docs/field-candidates-002466.md)保留旧筛选标记作历史记录，不用它恢复旧范围。 |
-| [`docs/data-contract.md`](docs/data-contract.md) | 证据结构、字段映射、单位、状态与计算口径 | 实现适配器、确定公式、时间对齐、缺失/冲突/过期规则或更改 API 映射时更新；写清输入、输出、来源和异常语义。 |
+| [`docs/data-contract.md`](docs/data-contract.md) | 证据结构、字段映射、单位、状态与计算口径 | 实现适配器、确定公式、时间对齐、缺失/冲突/固定快照时点规则或更改 API 映射时更新；写清输入、输出、来源和异常语义。 |
 | [`docs/data-access-audit.md`](docs/data-access-audit.md) | 接口权限与真实返回的审计 | 新增/失效数据接口、授权变化或重新探测时，追加日期、标的、请求范围、HTTP/业务状态、记录数、可用字段和限制；不写密钥或受限原始数据。 |
 | [`docs/ai-use-and-validation.md`](docs/ai-use-and-validation.md) | 必交的 AI 使用与人工验证记录 | AI 参与需求分析、代码、文案、数据解释或测试时，及时记录工具、用途、产出、人工核验、发现的错误及修正、证据位置；不要只在提交前笼统补写。 |
 | [`docs/test-plan.md`](docs/test-plan.md) | 必交的测试说明与执行证据 | 功能或边界改变时补场景；执行后写日期、环境/命令、预期与实际结果、失败处理和证据链接。未执行的场景保持“待测”。 |
