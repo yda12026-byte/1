@@ -35,7 +35,8 @@
 
 ## 5. 实施与验证约定
 
-- 当前仓库只有文档和 `scripts/` 下的探测脚本；**Web 产品、数据适配层、部署尚未完成**。先检查实际目录，再选技术栈，不假设 `src/` 已有实现。
+- **技术语言偏好：除 HTML 前端（含必要的 CSS、浏览器 JavaScript）外，能用 Python 实现的后端、数据适配、指标计算、LLM 调用、自动化脚本和测试都优先用 Python。** 只有 Python 明显不适合或现有依赖要求其他语言时才例外，并在决策记录写明理由。已有 `.mjs` 探测脚本或进行中的原型不因这条偏好而直接覆盖、删除；先核对工作树与实现状态，再决定如何迁移或集成。见 [`docs/decisions/0004-python-default.md`](docs/decisions/0004-python-default.md)。
+- 实现状态以当前工作树、提交和验证结果为准；`src/` 可能有进行中的代码。先检查实际目录，勿把草稿或未提交原型当作已交付的 Web 产品。
 - 参照 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) 的数据适配 → 校验/计算 → 证据组织 → LLM 解读 → Web 展示主链路。架构草案可调整；重大选择记入 [`docs/decisions/`](docs/decisions/)。
 - 测试至少覆盖正常主链路、证据钻取、缺失/失败/过期/冲突、零分母或极端值、合规边界及公开部署可操作性；结果写入 [`docs/test-plan.md`](docs/test-plan.md)。AI 参与和人工纠错写入 [`docs/ai-use-and-validation.md`](docs/ai-use-and-validation.md)。
 - 修改前检查 `git status`，尊重用户直接编辑的 Markdown；不对未知改动执行 `reset`、强制覆盖或清理。提交前运行相关检查、`git diff --check` 并检查待提交内容无密钥或受限数据。仓库远端是 `https://github.com/yda12026-byte/1.git`；同步时正常提交并推送，勿强推。

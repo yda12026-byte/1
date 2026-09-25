@@ -8,5 +8,6 @@
 | 2026-09-25 | DeepSeek-V4.1-Flash：最小文本调用验证 | API 返回非空文本 | 先核对官方模型名，再确认模型列表和实际调用均成功；未用于生成金融结论 | `docs/decisions/0002-deepseek-llm.md` |
 | 2026-09-26 | Codex：记录用户选定标的，调用扶摇和 iFinD 核对数据覆盖与公司资料 | 天齐锂业标的决策与数据审计更新 | 以用户明确指定的 `002466` 为准；核对扶摇各接口状态、iFinD 返回的代码/名称/主营业务/行业，未据此自动生成投资判断 | `docs/decisions/0003-target-stock.md`、`docs/data-access-audit.md` |
 | 2026-09-26 | Codex：编写跨会话接手指南 | `AGENTS.md` 的接手顺序与项目边界 | 用户指出初稿缺少各文档的维护方法；补入逐文档用途、更新触发条件和决策替代规则，并检查链接 | `AGENTS.md`、`docs/decisions/README.md` |
+| 2026-09-26 | Codex：记录实现语言约束 | Python 优先规则及决策 0004 | 以用户明确补充的偏好为准；核对现有工作树，未覆盖进行中的 `.mjs` 原型，也未把 Web 框架写成已选定 | `AGENTS.md`、`docs/decisions/0004-python-default.md` |
 
 关键数字和结论必须回到原始字段或原文；后续在此记录发现并纠正的错误或不合理结果。
