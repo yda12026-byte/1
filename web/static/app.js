@@ -58,6 +58,7 @@ function scopeText(scope) {
 }
 function jumpTo(runId, id) {
   const target = document.getElementById(domId(runId, id));
+  const card = target?.closest('.answer.collapsed'); if (card) setCollapsed(card, false);
   if (target) { target.open = true; target.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
 }
 function renderEvidence(item, byId, runId) {
@@ -119,7 +120,7 @@ function renderConclusion(conclusion, byId, runId, snapshot) {
       const chip = el('button', `figure state-${item.quality.status}`); chip.type = 'button';
       addText(chip, 'span', 'figure-label', evidenceName(item));
       addText(chip, 'strong', '', item.value === null ? (labels[item.quality.status] || '—') : `${item.value} ${item.unit || ''}`);
-      chip.addEventListener('click', () => { const target = document.getElementById(domId(runId, id)); if (target) { target.open = true; target.scrollIntoView({ behavior: 'smooth', block: 'center' }); } });
+      chip.addEventListener('click', () => jumpTo(runId, id));
       chips.append(chip);
     }
     card.append(chips);
@@ -130,6 +131,20 @@ function renderConclusion(conclusion, byId, runId, snapshot) {
   for (const link of conclusion.evidence_links) { const item = byId[link.evidence_id]; if (item) list.append(renderEvidence(item, byId, runId)); }
   card.append(list);
   if (conclusion.limitations?.length) addText(card, 'div', 'answer-note', `限制：${conclusion.limitations.join('；')}`);
+  return makeCollapsible(card, header, conclusion.required_anchor);
+}
+function setCollapsed(card, collapsed) {
+  card.classList.toggle('collapsed', collapsed);
+  const button = card.querySelector('.collapse-btn');
+  if (button) { button.textContent = collapsed ? '展开' : '收起'; button.setAttribute('aria-expanded', String(!collapsed)); }
+}
+function makeCollapsible(card, header, brief) {
+  const body = el('div', 'answer-body');
+  while (header.nextSibling) body.append(header.nextSibling);
+  card.append(body);
+  addText(header, 'span', 'answer-brief', brief);
+  const button = addText(header, 'button', 'collapse-btn', '收起'); button.type = 'button'; button.setAttribute('aria-expanded', 'true');
+  header.addEventListener('click', event => { if (event.target.closest('.figure, .input-link, a')) return; setCollapsed(card, !card.classList.contains('collapsed')); });
   return card;
 }
 function renderGaps(fields, title) {
@@ -142,7 +157,7 @@ function renderGaps(fields, title) {
     addText(row, 'span', '', `候选状态：${field.candidate_status}；产品状态：数据或计算待接入；预期来源：${String(field.source_ref || '未定').replaceAll('`', '')}`);
     box.append(row);
   }
-  card.append(box); return card;
+  card.append(box); return makeCollapsible(card, header, title);
 }
 function renderClues(clues) {
   const card = el('div', 'answer');
@@ -160,7 +175,7 @@ function renderClues(clues) {
     }
     card.append(list);
   }
-  return card;
+  return makeCollapsible(card, header, `公告与新闻待核线索（${clues.total.notices} 条公告、${clues.total.news} 条新闻）`);
 }
 function renderRuns(payload) {
   const wrap = el('div', 'runs');
@@ -171,6 +186,12 @@ function renderRuns(payload) {
     addText(lead, 'div', 'summary-label', '总体解读');
     addText(lead, 'p', 'summary-text', payload.summary.text);
     addText(lead, 'div', 'summary-meta', `${payload.summary.validation === 'passed' ? '受限模型解读，已校验只重述程序结论' : '程序汇总各维度结论'} · 固定快照，不构成投资建议 · 下方为分维度结论与证据`);
+    const tools = el('div', 'collapse-tools');
+    for (const [text, collapsed] of [['全部收起', true], ['全部展开', false]]) {
+      const button = addText(tools, 'button', 'collapse-all', text); button.type = 'button';
+      button.addEventListener('click', () => wrap.querySelectorAll('.answer').forEach(card => card.querySelector('.collapse-btn') && setCollapsed(card, collapsed)));
+    }
+    lead.append(tools);
     wrap.append(lead);
   }
   for (const run of runs) {

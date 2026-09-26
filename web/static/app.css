@@ -45,3 +45,13 @@
 .summary-text{font-size:16px;line-height:1.9;margin:0 0 10px;color:#1f2b36;font-weight:500}
 .summary-meta{font-size:11px;color:#7a8591}
 .more-examples{flex-basis:100%}.more-examples>summary{cursor:pointer;font-size:11px;color:#607871;margin:2px 0 6px;list-style:none}.more-examples>summary::before{content:'▸ '}.more-examples[open]>summary::before{content:'▾ '}.more-examples>summary::-webkit-details-marker{display:none}.more-examples .examples{margin-bottom:0}
+/* 结论卡片单独收起 */
+.answer-header{cursor:pointer;flex-wrap:nowrap;min-width:0}.answer-header .tag{flex:none}
+.answer-brief{display:none;flex:1;min-width:0;font-size:13px;font-weight:600;color:#1f2b36;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.collapse-btn{margin-left:auto;flex:none;background:none;border:1px solid #d5dce3;border-radius:14px;padding:3px 11px;font-size:11px;color:#4a5866}
+.collapse-btn:hover,.collapse-btn:focus-visible{border-color:#6b7c8e;color:#26374d}
+.answer.collapsed{padding-top:12px;padding-bottom:12px}.answer.collapsed .answer-header{margin-bottom:0}
+.answer.collapsed .answer-body{display:none}.answer.collapsed .answer-brief{display:block}
+.collapse-tools{display:flex;gap:8px;margin-top:10px}.collapse-all{background:#f4f6f8;border:1px solid #dfe4ea;border-radius:14px;padding:4px 12px;font-size:11px;color:#3a4d63}.collapse-all:hover{border-color:#8497ad}
+@media(max-width:560px){.answer-header{flex-wrap:wrap}.answer.collapsed .answer-brief{flex-basis:100%;order:5;white-space:normal}}
+.messages{overflow-x:hidden}.runs{max-width:100%;min-width:0}.assistant-message{max-width:760px;width:100%;min-width:0}
