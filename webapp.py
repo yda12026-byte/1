@@ -16,6 +16,7 @@ from diagnosis.catalog import DIMENSION_EXECUTABLE, DIMENSIONS, EXECUTABLE_FIELD
 from diagnosis.deepseek import DeepSeek  # noqa: E402
 from diagnosis.net import load_env  # noqa: E402
 from diagnosis.pipeline import diagnose_dimensions, diagnose_profit_cash  # noqa: E402
+from diagnosis.cos_fetch import SNAPSHOT_FILES, CosSnapshotFetcher  # noqa: E402
 from diagnosis.product_snapshot import load_product_snapshot  # noqa: E402
 from diagnosis.routing import route_question  # noqa: E402
 from diagnosis.snapshot import load_snapshot  # noqa: E402
@@ -136,7 +137,7 @@ def _planned_payload(route: dict) -> dict:
 
 
 def create_app(*, snapshot_path: Path | None = None, product_snapshot_path: Path | None = None,
-               llm=_AUTO_LLM) -> Flask:
+               llm=_AUTO_LLM, cos_fetcher: CosSnapshotFetcher | None = None) -> Flask:
     app = Flask(__name__, template_folder="web/templates", static_folder="web/static")
     app.config["MAX_CONTENT_LENGTH"] = 16 * 1024
     env = load_env(ROOT / ".env") if (ROOT / ".env").exists() else dict(os.environ)
@@ -149,6 +150,17 @@ def create_app(*, snapshot_path: Path | None = None, product_snapshot_path: Path
                                              else path.with_name(PRODUCT_SNAPSHOT_NAME))
     if not product_path.is_absolute():
         product_path = ROOT / product_path
+    # Decision 0020 fallback: with DIAGNOSIS_COS_BUCKET set, both snapshots are downloaded from the private
+    # bucket into a local directory and read from there. Explicit test paths keep file mode unless a fetcher is given.
+    fetcher = cos_fetcher if cos_fetcher is not None else CosSnapshotFetcher(env)
+    use_cos = fetcher.enabled and (cos_fetcher is not None or snapshot_path is None)
+    if use_cos:
+        path, product_path = fetcher.path(SNAPSHOT_FILES[0]), fetcher.path(SNAPSHOT_FILES[1])
+        fetcher.ensure()
+
+        @app.before_request
+        def _retry_snapshot_download():
+            fetcher.ensure()  # no-op once downloaded; failures retried at most once a minute
     if llm is _AUTO_LLM:
         llm = DeepSeek(env["DEEPSEEK_API_KEY"], env.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com"),
                        env.get("DEEPSEEK_MODEL", "deepseek-flash")) if env.get("DEEPSEEK_API_KEY") else None
@@ -163,6 +175,7 @@ def create_app(*, snapshot_path: Path | None = None, product_snapshot_path: Path
         product, _ = _product_state(product_path)
         return jsonify({"status": "ok", "service": "diagnosis-web",
                         "snapshots": {"profit_cash": _snapshot_state(path)["status"], "product": product["status"]},
+                        "snapshot_source": fetcher.status if use_cos else {"mode": "file"},
                         "llm_configured": llm is not None})
 
     @app.get("/api/bootstrap")
