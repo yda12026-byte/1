@@ -14,7 +14,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from diagnosis.catalog import CATALOG_VERSION, DIMENSIONS, IMPLEMENTED_FIELD_IDS, IMPLEMENTED_LABELS, SUBJECT  # noqa: E402
 
 SOURCE_GROUPS = (
-    ("扶摇", "fuyao"), ("iFinD", "ifind"), ("深交所", "official_filing"),
+    ("扶摇", "fuyao"), ("iFinD", "ifind"), ("深交所", "official_filing"), ("官方", "official_filing"),
     ("巨潮", "official_filing"), ("公告", "official_filing"), ("定期报告", "official_filing"),
     ("同行", "peer_group"), ("日 K", "price_series"),
 )
@@ -27,10 +27,10 @@ CALCULATIONS = {
     "研发费用及费用率": ("rd_expense_div_operating_income", ["research_and_development_expenses", "operating_income"]),
     "经营现金流 / 净利润": ("operating_cash_flow_div_net_profit", ["act_cash_flow_net", "net_profit"]),
     "自由现金流近似值": ("operating_cash_flow_minus_fixed_asset_cash", ["act_cash_flow_net", "pay_fixed_assets_etc_cash"]),
-    "货币资金 / 总债务 / 净现金": ("cash_minus_total_debt", ["cash", "total_debt"]),
+    "货币资金 / 总债务 / 净现金": ("cash_minus_interest_bearing_debt", ["cash", "official_h1_interest_bearing_debt_items"]),
     "20/60 交易日区间涨跌幅": ("adjusted_close_return_20_60", ["forward_adjusted_daily_close"]),
     "量能变化": ("volume_vs_n_day_average", ["daily_volume"]),
-    "现金覆盖总债务": ("cash_div_total_debt", ["cash", "total_debt"]),
+    "现金覆盖总债务": ("cash_div_interest_bearing_debt", ["cash", "official_h1_interest_bearing_debt_items"]),
     "利润与经营现金流背离": ("profit_cash_sign_alignment", ["net_profit", "act_cash_flow_net"]),
 }
 

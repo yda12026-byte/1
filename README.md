@@ -6,7 +6,7 @@
 
 - 地址：<https://lithium-diagnosis-319862-8-1496111595.sh.run.tcloudbase.com>（腾讯云 CloudBase 云托管）
 - 首次打开会出现 CloudBase 测试域名的“风险提醒”页，等待倒计时后点击“确定访问”即可进入。
-- 状态：**已上线**，公网验收脚本 21 项（2026-09-26 18:20 前后最近一次全部通过，含事件维度；之后的图表与口径修正以[测试说明](docs/test-plan.md)的最新记录为准）。服务从本仓库 `main` 分支构建；启动时用只读密钥从私有 COS 下载固定快照（[决策 0020](docs/decisions/0020-snapshot-download-fallback.md)），此前的存储挂载方案因平台 cosfs 失败而弃用。验收结果见[测试说明](docs/test-plan.md)。
+- 状态：**已上线**。2026-09-26 提交前复核：本地 80 项测试通过，公网验收 21/21；七维均可诊断，产品快照 ID 为 `5f4fc986bc6ea4113368`。服务从本仓库 `main` 分支构建；启动时用只读密钥从私有 COS 下载固定快照（[决策 0020](docs/decisions/0020-snapshot-download-fallback.md)），此前的存储挂载方案因平台 cosfs 失败而弃用。验收结果见[测试说明](docs/test-plan.md)。
 
 ## 产品能做什么
 

@@ -364,18 +364,19 @@
       "id": "f027",
       "label": "货币资金 / 总债务 / 净现金",
       "dimension": "financial_trend",
-      "source_ref": "扶摇资产负债表 `cash`、`total_debt`；`cash-total_debt`",
+      "source_ref": "扶摇货币资金 `cash`；官方半年报五项有息债务明细",
       "source_groups": [
-        "fuyao"
+        "fuyao",
+        "official_filing"
       ],
       "candidate_status": "可计算",
-      "review_note": "2026-09-26 核实：扶摇 `total_debt` = 总资产 − 所有者权益，是负债合计而非有息债务，不能据此称净现金；产品改用官方半年报五项有息债务计算净现金（决策 0018）。",
+      "review_note": "产品净现金 = 货币资金 − 有息债务合计；扶摇 `total_debt` 实为负债合计，不用于净现金计算（决策 0018）。",
       "kind": "computed",
       "product_state": "implemented",
-      "formula_id": "cash_minus_total_debt",
+      "formula_id": "cash_minus_interest_bearing_debt",
       "input_fields": [
         "cash",
-        "total_debt"
+        "official_h1_interest_bearing_debt_items"
       ]
     },
     {
@@ -531,7 +532,7 @@
         "ifind"
       ],
       "candidate_status": "部分可用",
-      "review_note": "返回 2023-09-26 至 2026-09-26 的 100 个日期点；含非交易日，采样频率、负 PE 处理和分位算法待定。",
+      "review_note": "产品按扶摇 242 个交易日过滤 iFinD 自身序列计算分位；PE(TTM) 序列含亏损期负倍数时分位标不适用（决策 0014、0016）。",
       "kind": "source",
       "product_state": "implemented"
     },
@@ -544,7 +545,7 @@
         "peer_group"
       ],
       "candidate_status": "部分可用",
-      "review_note": "已取一个同行样本；正式可比组、负值处理和同日口径待定。",
+      "review_note": "正式同行组为赣锋锂业、中矿资源、永兴材料；产品按同日与 iFinD 同口径计算（决策 0013、0014、0016）。",
       "kind": "source",
       "product_state": "implemented"
     },
@@ -725,7 +726,7 @@
         "peer_group"
       ],
       "candidate_status": "部分可用",
-      "review_note": "候选同行赣锋锂业（002460.SZ）的对应数据已实测；完整可比组与统一口径尚未确定。",
+      "review_note": "正式同行组已补下载并按同报告期比较；未核准的个别指标仍在运行时标明状态（决策 0013、0016）。",
       "kind": "source",
       "product_state": "implemented"
     },
@@ -738,7 +739,7 @@
         "source_to_verify"
       ],
       "candidate_status": "部分可用",
-      "review_note": "候选同行赣锋锂业的估值快照和 123 条日 K 已实测；可比组、同日和同区间处理待定。",
+      "review_note": "三家正式同行已按同日估值、同区间前复权行情比较（决策 0013、0014、0016）。",
       "kind": "source",
       "product_state": "implemented"
     },
@@ -746,12 +747,12 @@
       "id": "f055",
       "label": "公告标题、日期、相关片段",
       "dimension": "events",
-      "source_ref": "iFinD `search_notice`",
+      "source_ref": "巨潮资讯官方公告清单与 PDF 原文",
       "source_groups": [
-        "ifind"
+        "official_filing"
       ],
       "candidate_status": "已取值",
-      "review_note": "已检索到天齐相关公告片段；片段不是完整公告。",
+      "review_note": "官方清单 207 条，按九类事项分类；iFinD 检索片段不作为公告证据（决策 0022）。",
       "kind": "source",
       "product_state": "implemented"
     },
@@ -759,12 +760,12 @@
       "id": "f056",
       "label": "公告原文链接与页码",
       "dimension": "events",
-      "source_ref": "深交所/巨潮等原文定位",
+      "source_ref": "巨潮资讯 PDF 原文与程序摘录",
       "source_groups": [
         "official_filing"
       ],
       "candidate_status": "已取值",
-      "review_note": "已取得五份官方定期报告原文及链接；尚未提取页码，也未取得全年临时公告原文。iFinD 检索结果只有片段，不能代替原文。",
+      "review_note": "重要事项 PDF 有原文链接和页码，按类人工抽查 10 条一致；其余摘录未逐条人工核对（决策 0022）。",
       "kind": "source",
       "product_state": "implemented"
     },
@@ -772,14 +773,13 @@
       "id": "f057",
       "label": "定期报告期末与实际披露日",
       "dimension": "events",
-      "source_ref": "扶摇报表 `period_end_ms`、`report_date_ms`；iFinD 公告日期",
+      "source_ref": "扶摇期末 `period_end_ms`；巨潮实际披露日",
       "source_groups": [
         "fuyao",
-        "ifind",
         "official_filing"
       ],
       "candidate_status": "已取值",
-      "review_note": "扶摇期末字段有值、iFinD 公告有日期；扶摇最新 `report_date_ms` 等于期末，实际披露日须以原公告核准。",
+      "review_note": "实际披露日取巨潮公告时间，并与法定截止日比较；扶摇 `report_date_ms` 不作披露日（决策 0013、0022）。",
       "kind": "source",
       "product_state": "implemented"
     },
@@ -787,12 +787,12 @@
       "id": "f058",
       "label": "项目投产、扩产、停产或并购",
       "dimension": "events",
-      "source_ref": "定期报告/临时公告片段及原文",
+      "source_ref": "巨潮定期报告与重要事项 PDF 原文",
       "source_groups": [
         "official_filing"
       ],
       "candidate_status": "已取值",
-      "review_note": "公告检索返回相关片段；尚未逐项识别事件和核准原文，不能直接列为确定事件。",
+      "review_note": "项目、资本运作等类别已按官方公告分类并摘录；事件与行情只并列展示，不作因果归因（决策 0022）。",
       "kind": "source",
       "product_state": "implemented"
     },
@@ -800,12 +800,13 @@
       "id": "f059",
       "label": "分红、送股、配股",
       "dimension": "events",
-      "source_ref": "扶摇除复权事件流",
+      "source_ref": "巨潮利润分配与资本运作公告；扶摇除复权事件流作缺口",
       "source_groups": [
-        "fuyao"
+        "fuyao",
+        "official_filing"
       ],
       "candidate_status": "已取值",
-      "review_note": "扶摇 2024-01-01 至 2026-09-26 曾返回 1 条分红相关记录；本次一年窗口返回业务 `code=3002`（无匹配事件）。两次范围不同，不可推断全年没有其他公司行为。",
+      "review_note": "利润分配与资本运作公告有原文摘录；扶摇除复权事件流一年窗口返回 `code=3002`，只表述“该请求范围无匹配事件”（决策 0013、0022）。",
       "kind": "source",
       "product_state": "implemented"
     },
@@ -878,18 +879,19 @@
       "id": "f065",
       "label": "现金覆盖总债务",
       "dimension": "risk",
-      "source_ref": "`cash / total_debt`",
+      "source_ref": "扶摇货币资金 `cash` ÷ 官方半年报有息债务合计",
       "source_groups": [
-        "fuyao"
+        "fuyao",
+        "official_filing"
       ],
       "candidate_status": "可计算",
-      "review_note": "总债务范围与受限资金需核实。",
+      "review_note": "产品按五项有息债务明细确定性计算，注明货币资金可能含受限资金（决策 0018）。",
       "kind": "computed",
       "product_state": "implemented",
-      "formula_id": "cash_div_total_debt",
+      "formula_id": "cash_div_interest_bearing_debt",
       "input_fields": [
         "cash",
-        "total_debt"
+        "official_h1_interest_bearing_debt_items"
       ]
     },
     {
