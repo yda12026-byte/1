@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#10212b">
+  <title>天齐锂业 · 证据诊断</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="回到首页"><span class="brand-mark">证</span><span>天齐锂业<span class="brand-sub">证据诊断</span></span></a>
+      <div class="top-meta"><span class="ticker">002466.SZ</span><span class="top-divider"></span><span>固定快照研究产品</span></div>
+    </header>
+    <main class="workspace">
+      <aside class="sidebar" aria-label="研究范围">
+        <div class="eyebrow">RESEARCH DESK / 01</div>
+        <h1>从一个问题<br>走向证据。</h1>
+        <p class="intro">围绕天齐锂业，核对财务事实、计算过程与尚未解决的缺口。结论只覆盖已核准的固定快照。</p>
+        <div class="sidebar-card">
+          <div class="card-kicker">研究区间</div>
+          <div class="window">2025.08.31 <span>—</span> 2026.08.31</div>
+          <div class="card-note">财务报告期与快照下载时间请在证据中分别查看。</div>
+        </div>
+        <div class="section-label">诊断维度</div>
+        <div id="dimensions" class="dimensions" aria-live="polite"></div>
+        <div class="sidebar-bottom">仅说明可验证的内容。<br>不提供买卖建议或涨跌预测。</div>
+      </aside>
+      <section class="chat-panel" aria-label="对话诊断">
+        <div class="chat-heading">
+          <div><div class="eyebrow dark">EVIDENCE CHAT</div><h2>研究对话</h2></div>
+          <div class="live-pill"><span class="live-dot"></span> 四类财务问法可运行</div>
+        </div>
+        <div id="snapshot-banner" class="snapshot-banner" role="status">正在检查固定快照…</div>
+        <div id="messages" class="messages" role="log" aria-live="polite">
+          <article class="welcome message assistant-message">
+            <div class="message-label">研究助手</div>
+            <h3>先从可核对的问题开始。</h3>
+            <p>点击示例问题，查看结论如何回到报告期、原始字段和计算输入。其他维度会列出字段需求与证据缺口。</p>
+          </article>
+        </div>
+        <div class="composer-wrap">
+          <div class="sample-label">从这些问题开始</div>
+          <div id="examples" class="examples"></div>
+          <form id="chat-form" class="composer">
+            <label class="sr-only" for="question">输入研究问题</label>
+            <textarea id="question" name="question" rows="2" maxlength="500" placeholder="例如：天齐锂业的利润和经营现金流匹配吗？" required></textarea>
+            <button id="send" type="submit" aria-label="发送问题">发送 <span aria-hidden="true">↗</span></button>
+          </form>
+          <p class="composer-note">有限追问示例：那现金流呢？它们的比值呢？ 对话只保留在当前页面。</p>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

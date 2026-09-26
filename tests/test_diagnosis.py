@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import json
 import unittest
 from pathlib import Path
 from uuid import uuid4
@@ -8,6 +9,8 @@ from uuid import uuid4
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from diagnosis.pipeline import diagnose_profit_cash
+from diagnosis.deepseek import DeepSeek
+from diagnosis.models import validate_run
 from diagnosis.profit_cash import build_profit_cash_run
 from diagnosis.providers import _date_from_ms
 from diagnosis.snapshot import load_snapshot, publish_snapshot
@@ -34,6 +37,50 @@ class DiagnosisTests(unittest.TestCase):
         self.assertEqual(ratio.calculation["input_evidence_ids"], [run.evidence[1].id, run.evidence[0].id])
         self.assertTrue(conclusion.cannot_say)
 
+    def test_priority_is_recorded_for_source_computation_and_conclusion(self):
+        run = self.build()
+        self.assertEqual([item.priority["field_id"] for item in run.evidence],
+                         ["f021", "f022", "f024"])
+        self.assertEqual([item.priority["tier"] for item in run.evidence], ["driver"] * 3)
+        self.assertEqual(run.conclusions[0].priority["field_id"], "f066")
+        ratio = run.evidence[2]
+        self.assertEqual(ratio.calculation["priority_inputs"],
+                         [{"evidence_id": item.id, "priority": item.priority}
+                          for item in (run.evidence[1], run.evidence[0])])
+        self.assertEqual(ratio.calculation["priority_policy"], "output_field_profile_no_numeric_weight")
+        self.assertEqual(ratio.value, "-0.20")
+        self.assertEqual(run.to_dict()["evidence"][2]["priority"]["profile_version"], "002466-priority-v1")
+
+    def test_priority_tampering_or_broken_lineage_is_rejected(self):
+        run = self.build()
+        original = run.evidence[0].priority
+        run.evidence[0].priority = {**original, "tier": "low"}
+        with self.assertRaisesRegex(ValueError, "priority"):
+            validate_run(run)
+        run.evidence[0].priority = original
+        run.evidence[0].priority = run.evidence[1].priority.copy()
+        with self.assertRaisesRegex(ValueError, "does not match its metric"):
+            validate_run(run)
+        run.evidence[0].priority = original
+        run.evidence[2].calculation["priority_inputs"] = []
+        with self.assertRaisesRegex(ValueError, "priority lineage"):
+            validate_run(run)
+
+    def test_llm_receives_priority_without_financial_values(self):
+        class RecordingDeepSeek(DeepSeek):
+            def _complete(self, system, user):
+                self.recorded_system = system
+                self.recorded_user = json.loads(user)
+                return {"text": "", "evidence_ids": []}
+
+        llm = RecordingDeepSeek("test-key")
+        run = self.build()
+        llm.translate(run.conclusions[0], run.evidence)
+        self.assertEqual(llm.recorded_user["priority"], run.conclusions[0].priority)
+        self.assertEqual(llm.recorded_user["evidence"][0]["priority"], run.evidence[0].priority)
+        self.assertNotIn("value", llm.recorded_user["evidence"][0])
+        self.assertIn("优先级不能把缺失", llm.recorded_system)
+
     def test_mismatched_period_or_basis_stays_unknown(self):
         for cash in (row("20", "2024-12-31"), row("20", basis="single_quarter")):
             with self.subTest(cash=cash):
@@ -45,6 +92,7 @@ class DiagnosisTests(unittest.TestCase):
         missing = self.build(cash=row(None, status="missing"))
         self.assertEqual(missing.conclusions[0].assessment, "unknown")
         self.assertIsNone(missing.evidence[1].value)
+        self.assertEqual(missing.evidence[1].priority["tier"], "driver")
         zero = self.build(profit=row("0"), cash=row("20"))
         self.assertEqual(zero.evidence[2].quality["status"], "not_applicable")
         self.assertIn("净利润不大于零", zero.evidence[2].quality["reason"])
@@ -112,6 +160,41 @@ class DiagnosisTests(unittest.TestCase):
             self.assertEqual(path.read_bytes(), previous)
         finally:
             path.unlink(missing_ok=True)
+
+    def test_single_metric_questions_use_only_their_own_evidence(self):
+        profit = build_profit_cash_run("净利润为正吗？", row("100"), row(None, status="error"),
+                                      intent="net_profit_status", run_id="profit-only")
+        self.assertEqual(profit.route["intent"], "net_profit_status")
+        self.assertEqual([item.metric_id for item in profit.evidence], ["net_profit"])
+        self.assertEqual((profit.conclusions[0].type, profit.conclusions[0].assessment), ("fact", "positive"))
+        self.assertEqual(profit.conclusions[0].evidence_links[0]["evidence_id"], profit.evidence[0].id)
+        cash = build_profit_cash_run("经营现金流为负吗？", row(None, status="error"), row("-20"),
+                                    intent="operating_cash_flow_status", run_id="cash-only")
+        self.assertEqual([item.metric_id for item in cash.evidence], ["operating_cash_flow"])
+        self.assertEqual((cash.conclusions[0].type, cash.conclusions[0].assessment), ("fact", "negative"))
+
+    def test_single_metric_missing_or_outside_cutoff_is_unknown(self):
+        missing = build_profit_cash_run("净利润为正吗？", row(None, status="missing"), row("20"),
+                                        intent="net_profit_status")
+        self.assertEqual(missing.conclusions[0].type, "unknown")
+        late = build_profit_cash_run("净利润为正吗？", row("100", period="2026-09-30"), row("20"),
+                                     intent="net_profit_status")
+        self.assertEqual(late.conclusions[0].type, "unknown")
+        self.assertEqual(late.evidence[0].quality["status"], "not_applicable")
+        self.assertIn("仅回答单项指标", late.conclusions[0].limitations[0])
+
+    def test_ratio_question_has_computed_evidence_and_denominator_guard(self):
+        run = build_profit_cash_run("经营现金流与净利润的比值是多少？", row("100"), row("80"),
+                                    intent="profit_cash_ratio", run_id="ratio-question")
+        self.assertEqual(run.evidence[2].value, "0.80")
+        self.assertEqual(run.conclusions[0].claim_code, "cash_to_profit_ratio_available")
+        self.assertEqual(run.conclusions[0].type, "fact")
+        self.assertEqual({link["evidence_id"] for link in run.conclusions[0].evidence_links},
+                         {item.id for item in run.evidence})
+        invalid = build_profit_cash_run("经营现金流与净利润的比值是多少？", row("-100"), row("80"),
+                                        intent="profit_cash_ratio")
+        self.assertEqual(invalid.evidence[2].quality["status"], "not_applicable")
+        self.assertEqual(invalid.conclusions[0].type, "unknown")
 
 
 if __name__ == "__main__":

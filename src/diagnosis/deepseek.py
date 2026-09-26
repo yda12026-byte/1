@@ -7,6 +7,7 @@ from urllib.request import Request
 
 from .models import Conclusion, Evidence
 from .net import open_direct
+from .catalog import INTENTS
 
 
 class DeepSeek:
@@ -42,24 +43,28 @@ class DeepSeek:
 
     def classify(self, question: str) -> str:
         result = self._complete(
-            '你是受限意图分类器。只输出 JSON 对象 {"intent":"profit_cash_alignment"|"unsupported"}。'
-            '只有问题涉及净利润或盈利与经营现金流之间的关系时选 profit_cash_alignment；其他问题选 unsupported。不要回答问题。',
+            '你是受限意图分类器。只输出 JSON 对象，例如 {"intent":"financial_trend"}。'
+            'intent 只能是 overview、profit_cash_alignment、net_profit_status、operating_cash_flow_status、profit_cash_ratio、operating_quality、financial_trend、valuation、market、industry、events、risk、unsupported。'
+            '仅问净利润正负选 net_profit_status，仅问经营活动现金流净额正负选 operating_cash_flow_status；同时问利润与经营现金流的比值选 profit_cash_ratio，问两者关系选 profit_cash_alignment。'
+            '更宽泛的财务、估值或行业问题选对应维度；整体诊断选 overview；无法归类或要求直接买卖、收益承诺时选 unsupported。不要回答问题。',
             question,
         )
         intent = result.get("intent")
-        if intent not in ("profit_cash_alignment", "unsupported"):
+        if intent not in INTENTS and intent != "unsupported":
             raise ValueError("LLM returned an unknown intent")
         return intent
 
     def translate(self, conclusion: Conclusion, evidence: list[Evidence]) -> dict:
         summary = {
             "claim_code": conclusion.claim_code, "type": conclusion.type, "assessment": conclusion.assessment,
+            "priority": conclusion.priority,
             "fallback_text": conclusion.fallback_text, "required_anchor": conclusion.required_anchor,
             "limitations": conclusion.limitations,
             "cannot_say": [{"code": rule.code, "statement": rule.statement, "reason": rule.reason}
                            for rule in conclusion.cannot_say],
             "evidence": [
                 {"id": item.id, "metric_id": item.metric_id, "status": item.quality["status"],
+                 "priority": item.priority,
                  "sign": None if item.quality["status"] != "valid" or item.kind == "computed" else
                  "positive" if Decimal(item.value) > 0 else "negative" if Decimal(item.value) < 0 else "zero",
                  "period_end": item.time.get("period_end"), "period_basis": item.scope.get("period_basis")}
@@ -68,6 +73,8 @@ class DeepSeek:
         }
         return self._complete(
             '你只把已有结论翻译成简洁中文，不新增事实、因果、数字或投资建议。数据来自一次性固定快照，不是实时数据。严格遵守 cannot_say。'
+            'priority 的 driver/support/context/low 表示研究重要性，优先突出有效的高优先级证据；低优先级证据仅在直接提问或必要背景时简述。'
+            '优先级不能把缺失、冲突或错误证据变成事实，也不能改变公式或程序结论。高优先级证据缺失时保留未知状态。'
             '只输出 JSON 对象 {"text":"...","evidence_ids":["..."]}。正文必须逐字包含 required_anchor，'
             '不要出现数字或百分号；evidence_ids 包含所用的所有来源证据 ID。',
             json.dumps(summary, ensure_ascii=False),

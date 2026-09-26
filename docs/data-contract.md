@@ -1,6 +1,25 @@
 # 数据与证据契约
 
-状态：Python 核心切片已实现；其余字段映射和 Web 钻取仍待扩展。实现见 `src/diagnosis/models.py`、`profit_cash.py`、`validator.py`。
+状态：Python 核心切片和候选字段路由已实现；其余字段的快照适配、计算和 Web 钻取仍待扩展。实现见 `src/diagnosis/models.py`、`profit_cash.py`、`routing.py`、`validator.py`。
+
+## 候选字段与问题路由
+
+`config/diagnosis_fields.json` 是 72 条候选字段的机器可读配置，每条含 `id`、`label`、`dimension`、`source_ref`、`source_groups`、`candidate_status`、`review_note`、`kind` 和 `product_state`；候选计算项另含 `formula_id`、`input_fields`。`candidate_status` 是候选表的实验核查结果，`product_state=implemented` 仅表示已接入当前诊断切片，二者均不能代替运行时 `Evidence.quality.status`。原始来源字段与单位、报告期和授权范围仍须逐项核准。
+
+`route_question` 返回 `intent`、`dimensions`、`field_ids`、完整字段需求、`execution_status`、`config_version` 和观察区间。`overview` 展开全部七维；多维问题取并集。当前 `execution_status=implemented` 的四个窄意图及字段如下：
+
+| 意图 | 所需候选字段 | 回答边界 |
+| --- | --- | --- |
+| `net_profit_status` | `f021` | 净利润在快照报告期的正、负或零 |
+| `operating_cash_flow_status` | `f022` | 经营活动现金流净额在快照报告期的正、负或零 |
+| `profit_cash_ratio` | `f021`、`f022`、`f024` | 同期同口径且净利润为正时的确定性比值 |
+| `profit_cash_alignment` | `f021`、`f022`、`f024`、`f066` | 两项指标方向关系 |
+
+其他可识别问题为 `planned`，直接投资建议或无法归类问题为 `unsupported`。同比、趋势、指定年份和两项绝对差额不能误路由到窄意图。路由本身不读取快照、不算数、不生成结论；已有诊断入口对 `planned` 返回 `not_implemented`。字段配置由 `py scripts/build_route_catalog.py` 从当前候选表生成，变更时须审阅差异及[决策 0008](decisions/0008-question-route-catalog.md)、[0009](decisions/0009-narrow-financial-questions.md)。
+
+各问题类别的完整字段、来源、计算依赖与产品状态见[问题类别与证据展开对照表](question-routing-map.md)，可运行 `py scripts/export_question_routing_md.py --check` 检查文档是否与配置一致。
+
+`config/priority_profile_002466.json` 独立记录天齐锂业每项字段的展示优先级和理由。路由新增 `display_plan`：`profile_version`、`budget`、`selection_rule`、`focus_field_ids`、`default_field_ids`、`drilldown_field_ids`。单维/多维/全面问题的默认上限分别为 5/8/12 项；`field_ids` 仍保留全部候选，不因弱化展示而删除。`fields` 中的 `priority_tier`、`priority_reason` 和 `default_display` 是产品编排元数据，不能代替 `candidate_status` 或运行时 `Evidence.quality.status`。用户明确问研发等低优先级字段时，该字段进入默认展示；四个可执行窄意图的输入不受展示预算裁剪。高优先级但未核准的字段应表现为证据缺口，不能被低优先级字段悄悄替代。见[决策 0010](decisions/0010-company-specific-display-priority.md)。
 
 ## 对象关系
 
@@ -12,7 +31,11 @@
 
 ### Evidence：可复核的数据或缺口
 
-统一字段：`id`、`metric_id`、`subject`、`kind`（`source` / `computed`）、`value`（十进制字符串或 `null`）、`unit`、`time`、`scope`、`quality`。来源证据必须含 `source.provider`、`endpoint`、`field`、`query_ref`；计算证据必须含 `calculation.formula_id`、`formula_version` 和 `input_evidence_ids`。
+统一字段：`id`、`metric_id`、`subject`、`kind`（`source` / `computed`）、`value`（十进制字符串或 `null`）、`unit`、`time`、`scope`、`quality`、`priority`。来源证据必须含 `source.provider`、`endpoint`、`field`、`query_ref`；计算证据必须含 `calculation.formula_id`、`formula_version` 和 `input_evidence_ids`。
+
+`priority` 必须记录 `field_id`、`tier`、`reason`、`profile_version`，取自天齐锂业的版本化公司配置。`tier` 四档依次为 `driver`（核心驱动/风险）、`support`（解释与交叉验证）、`context`（背景或钻取）、`low`（弱化展示）。现有来源证据净利润/经营现金流对应 `f021`/`f022`，计算比值对应 `f024`；结论的 `priority` 也记录相同结构，方向关系对应 `f066`。即使 `quality.status` 是缺失、冲突或错误，也保留字段优先级以呈现重要缺口；优先级绝不表示证据有效。
+
+计算证据的 `calculation.priority_inputs` 按 `input_evidence_ids` 顺序保存每个输入的证据 ID 和完整优先级快照，`priority_policy=output_field_profile_no_numeric_weight` 表示输出字段按自身配置定级，输入优先级供计算编排和解释追溯。程序校验本次输入引用与优先级快照一致；优先级不进入数值公式，不改变比值、分母限制、状态判断或事实结论。当前只有两字段比值计算已实现，其他指标的优先计算编排仍待实现。见[决策 0011](decisions/0011-evidence-priority-propagation.md)。
 
 `time.period_end` 是报告期末，`time.fetched_at` 是获取时间；实际披露日只有经原公告核准才可写入 `published_at`。行情证据以后另用快照时间或观察区间，不能与财报期末混用。`scope` 记录年报/累计/单季、合并口径、复权方式或同行组等适用信息。
 
@@ -20,13 +43,15 @@
 
 ## 快照契约
 
+一年原始下载与发布快照分层：`scripts/download_annual_raw.py` 依据 2025-08-31 至 2026-08-31 的窗口保存扶摇、iFinD 和官方 PDF 的私有原始响应，每个请求记录参数、HTTP 状态、业务状态、下载时间及文件 SHA-256；已有文件不覆盖，失败项保留在审计并可重试。`scripts/audit_annual_coverage.py` 为全部 72 条候选项建立来源文件覆盖检查，`raw_files_present_review_required` 仅说明文件在位。自然日/交易日筛选、报告披露日、单位、历史修订、公告原文及受限数据展示权限仍需逐项核准。原始响应不能直接充当 `Evidence.quality.status=valid`，也不能作为产品固定快照。个股异动原因接口是当日能力，历史一年窗口无对应原始序列时保持未知。
+
 当前 `src/diagnosis/snapshot.py` 在 `data/cache/profit_cash_002466.json` 保存 `schema_version`、`subject`、`created_at`、两项标准化来源字段及内容摘要 `snapshot_id`。发布前拒绝接口错误或缺少字段组；写入临时文件后一次性发布，目标文件已存在时拒绝覆盖。读取时检查版本、标的、摘要与时间；下载时间不改变证据原有状态，也不会触发七天过期。提问路径只读该文件，不请求金融数据接口；完整受限 API 响应不写入仓库。
 
-考试产品部署时从服务器私有文件读取已核准的完整快照，一次诊断固定一个 `snapshot_id`，不能在计算中混用两批数据。不安排刷新任务或服务器数据库。行情、估值、公告和 iFinD 字段仍须逐项确定观察时点、统计口径、来源定位及保存/展示范围；当前两字段快照不代表完整产品数据集。
+考试产品部署时把已核准的完整快照以不可变对象名放入 CloudBase 云存储；云托管从 Git 构建代码，运行时通过私有存储挂载路径读取，不把数据打入镜像或前端。`DIAGNOSIS_SNAPSHOT_PATH` 指向容器内的准确文件，一次诊断固定一个 `snapshot_id`，不能在计算中混用两批数据。挂载缺失、摘要/版本/标的校验失败时返回快照不可用，不退回构造样本或原始下载。不安排刷新任务或服务器数据库。云上挂载与完整快照模式尚未实测；行情、估值、公告和 iFinD 字段仍须逐项确定观察时点、统计口径、来源定位及保存/展示范围。见[决策 0012](decisions/0012-cloudbase-git-and-storage-deployment.md)。
 
 ### Conclusion：有边界的判断
 
-统一字段：`id`、`dimension`、`claim_code`、`type`（`fact` / `inference` / `unknown`）、`assessment`（`positive` / `negative` / `mixed` / `unknown`）、`evidence_links`、`limitations`、`cannot_say`、`required_anchor`、`text`、`validation`。每条证据链接记录 `supports`、`counters` 或 `context` 角色；数据自身不预先固定为正面或负面。
+统一字段：`id`、`dimension`、`claim_code`、`type`（`fact` / `inference` / `unknown`）、`assessment`（`positive` / `negative` / `mixed` / `unknown`）、`evidence_links`、`limitations`、`cannot_say`、`required_anchor`、`text`、`validation`、`priority`。每条证据链接记录 `supports`、`counters` 或 `context` 角色；数据自身不预先固定为正面或负面。结论优先级影响解读篇幅和展示顺序，不能推翻证据质量或 `cannot_say`。
 
 `cannot_say` 每项有规则编号、禁止说法及理由。`NO_LIVE_DATA` 禁止把固定快照称为实时、最新或今天的数据。服务端按规则编号校验 LLM 文案，另外要求引用本次运行的来源证据、包含程序给定的事实锚点，且自然语言中不写数字。未通过、未知规则或 LLM 失败均返回确定性文案，并在 `validation_failures` 记录原因。词面校验不能证明任意自然语言都无越界含义；后续扩展自由解读时需继续收紧生成空间和做人工失败案例检查。
 
@@ -35,6 +60,22 @@
 标的为 `002466.SZ`，取扶摇利润表 `net_profit` 与现金流量表 `act_cash_flow_net` 的最近共同**年报**期。仅在报告期、年报口径、合并口径和币种一致且两值有效时比较符号；缺失、接口失败或口径不齐返回 `unknown`。比值为 `act_cash_flow_net / net_profit`，使用 Python `Decimal` 四舍五入到小数点后两位；净利润不大于零时比值为 `not_applicable`，不以普通倍数解释。比值只是辅助证据，不单独证明整体盈利质量或造假。
 
 原始受限批量响应、密钥和授权头不写入公开仓库。运行对象保存用于钻取的字段、值、报告期与查询定位；公告等文本证据后续须增加原文链接/页码或明确待核状态。
+
+单项指标问题只引用自身来源证据，另一项来源缺失不阻止回答。来源字段必须有可解析且不晚于 2026-08-31 的报告期、有效数值、单位与累计/单季口径，否则结论为 `unknown`。数值为零是可证实事实，但不赋予正面或负面判断。比值问题引用两项来源和计算证据；净利润不大于零时计算证据为 `not_applicable`，结论为 `unknown`。比值数值只出现在可钻取证据中，LLM 文案不自行书写数字。
+
+## 一年数据核准口径（决策 0013）
+
+对 2025-08-31 至 2026-08-31 一年原始数据，用户已确定以下口径；未列出的口径仍按本文其他小节与字段表“待核”处理。见[决策 0013](decisions/0013-annual-data-approval-decisions.md)。
+
+- **累计口径**：扶摇季度利润表/现金流量表按累计值使用并标注“累计”，不用相邻累计相减推导单季；由累计输入计算的 `f009` `f011` `f024` `f026` `f065` 注明基于累计期。单季度利润 `f020` 只取 iFinD 单季度字段。
+- **负基期同比**：归母净利润同比采用绝对基期算法并注明；营业利润同比在近零基期同样加注，不作为普通同比解释。
+- **交易日过滤**：估值、行业、价格序列统一以扶摇 242 个交易日历为准，非交易日（含周末与休市工作日）一律剔除；假日工作日的现货锂价也剔除。
+- **EDB 锂价定位**：只作行业环境证据，不等同公司实现售价或销售均价，不作为交易信号；`f070` 经营敏感性仍未核准。
+- **同行组**：正式同行组为赣锋锂业 `002460.SZ`、中矿资源 `002738.SZ`、永兴材料 `002756.SZ`；同日估值、同区间前复权行情、同报告期财务须统一口径。
+- **估值口径门禁**：iFinD 估值 TTM/MRQ 必须先核实分子市值口径、分母期间、是否年化、负值处理与更新时点，并用已知财报复算；通过前标 `待核`，不做跨来源比较、分位或高低判断。
+- **公告/新闻待定**：呈现方式未决，决定前检索结果不入正式事件事实，只作待核线索。
+- **特殊状态**：除复权事件 `code=3002` 记为 `source_no_matching_events`，文案为“该请求范围无匹配事件”；个股异动原因 `f048` 记为 `historical_interface_unavailable`，首屏不作当期结论但保留钻取。
+- 上述口径不改变 `Evidence.quality.status`：未完成单位、报告期、披露日与来源定位核对的字段，仍以对应缺口状态呈现。
 
 ## 待补
 

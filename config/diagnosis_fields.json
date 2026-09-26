@@ -1,0 +1,994 @@
+{
+  "version": "002466-route-v2",
+  "subject": "002466.SZ",
+  "fields": [
+    {
+      "id": "f001",
+      "label": "主营产品",
+      "dimension": "operating_quality",
+      "source_ref": "iFinD `get_stock_info`：主营产品名称",
+      "source_groups": [
+        "ifind"
+      ],
+      "candidate_status": "已取值",
+      "review_note": "iFinD 已返回产品清单；主营产品属低频信息，仍需随定期报告更新。",
+      "kind": "source",
+      "product_state": "pending"
+    },
+    {
+      "id": "f002",
+      "label": "一级行业分类",
+      "dimension": "industry",
+      "source_ref": "iFinD `get_stock_info`：申万/同花顺所属行业",
+      "source_groups": [
+        "ifind"
+      ],
+      "candidate_status": "已取值",
+      "review_note": "iFinD 已返回申万/同花顺一级“有色金属”；分类可能调整。",
+      "kind": "source",
+      "product_state": "pending"
+    },
+    {
+      "id": "f003",
+      "label": "可比公司名单",
+      "dimension": "industry",
+      "source_ref": "iFinD `get_stock_info`：竞争公司、可比公司",
+      "source_groups": [
+        "ifind"
+      ],
+      "candidate_status": "部分可用",
+      "review_note": "iFinD 返回候选公司；尚未按锂矿/锂化工业务结构确定正式同行组。",
+      "kind": "source",
+      "product_state": "pending"
+    },
+    {
+      "id": "f004",
+      "label": "锂矿、锂化合物及衍生品的业务构成",
+      "dimension": "operating_quality",
+      "source_ref": "iFinD `get_stock_info`：主营业务构成",
+      "source_groups": [
+        "ifind"
+      ],
+      "candidate_status": "部分可用",
+      "review_note": "分项占比已返回，报告期和分母仍需核对。",
+      "kind": "composite",
+      "product_state": "pending"
+    },
+    {
+      "id": "f005",
+      "label": "营业收入",
+      "dimension": "operating_quality",
+      "source_ref": "扶摇利润表 `operating_income`",
+      "source_groups": [
+        "fuyao"
+      ],
+      "candidate_status": "已取值",
+      "review_note": "多期可取；核对累计值与单季度值。",
+      "kind": "source",
+      "product_state": "pending"
+    },
+    {
+      "id": "f006",
+      "label": "营业成本",
+      "dimension": "operating_quality",
+      "source_ref": "扶摇利润表 `operating_costs`",
+      "source_groups": [
+        "fuyao"
+      ],
+      "candidate_status": "已取值",
+      "review_note": "与收入使用同一报告期和合并口径。",
+      "kind": "source",
+      "product_state": "pending"
+    },
+    {
+      "id": "f007",
+      "label": "销售毛利率",
+      "dimension": "operating_quality",
+      "source_ref": "扶摇指标 `sale_gross_margin`",
+      "source_groups": [
+        "fuyao"
+      ],
+      "candidate_status": "已取值",
+      "review_note": "可辅助判断价格与成本变化；不能单独解释产销量。",
+      "kind": "source",
+      "product_state": "pending"
+    },
+    {
+      "id": "f008",
+      "label": "营业利润",
+      "dimension": "operating_quality",
+      "source_ref": "扶摇利润表 `operating_profit`",
+      "source_groups": [
+        "fuyao"
+      ],
+      "candidate_status": "已取值",
+      "review_note": "核对投资收益等非主营因素。",
+      "kind": "source",
+      "product_state": "pending"
+    },
+    {
+      "id": "f009",
+      "label": "营业利润率",
+      "dimension": "operating_quality",
+      "source_ref": "`operating_profit / operating_income`",
+      "source_groups": [
+        "fuyao"
+      ],
+      "candidate_status": "可计算",
+      "review_note": "分母为零或缺失时留空；与指标源口径一致。",
+      "kind": "computed",
+      "product_state": "pending",
+      "formula_id": "operating_profit_div_operating_income",
+      "input_fields": [
+        "operating_profit",
+        "operating_income"
+      ]
+    },
+    {
+      "id": "f010",
+      "label": "销售净利率",
+      "dimension": "operating_quality",
+      "source_ref": "扶摇指标 `sale_net_interest_ratio`",
+      "source_groups": [
+        "fuyao"
+      ],
+      "candidate_status": "已取值",
+      "review_note": "与营业利润率含义不同。",
+      "kind": "source",
+      "product_state": "pending"
+    },
+    {
+      "id": "f011",
+      "label": "研发费用及费用率",
+      "dimension": "operating_quality",
+      "source_ref": "扶摇利润表 `research_and_development_expenses`；除以收入",
+      "source_groups": [
+        "fuyao"
+      ],
+      "candidate_status": "可计算",
+      "review_note": "费用率为自算，需核对累计/单季口径。",
+      "kind": "computed",
+      "product_state": "pending",
+      "formula_id": "rd_expense_div_operating_income",
+      "input_fields": [
+        "research_and_development_expenses",
+        "operating_income"
+      ]
+    },
+    {
+      "id": "f012",
+      "label": "投资收益及其利润贡献",
+      "dimension": "operating_quality",
+      "source_ref": "iFinD `get_stock_financials`：投资收益",
+      "source_groups": [
+        "ifind"
+      ],
+      "candidate_status": "部分可用",
+      "review_note": "iFinD 已返回投资收益；“贡献”分母和报告期尚未确定。",
+      "kind": "composite",
+      "product_state": "pending"
+    },
+    {
+      "id": "f013",
+      "label": "分业务收入、毛利或毛利率",
+      "dimension": "operating_quality",
+      "source_ref": "iFinD `get_stock_financials`：分产品收入、成本、毛利及毛利率",
+      "source_groups": [
+        "ifind"
+      ],
+      "candidate_status": "部分可用",
+      "review_note": "2025 年末有返回；产品/行业两组字段单位不一致，需逐列校验并对照年报原文。",
+      "kind": "source",
+      "product_state": "pending"
+    },
+    {
+      "id": "f014",
+      "label": "锂精矿和锂化工产品产销量、均价、单位成本",
+      "dimension": "operating_quality",
+      "source_ref": "定期报告经营数据/公告",
+      "source_groups": [
+        "official_filing"
+      ],
+      "candidate_status": "部分可用",
+      "review_note": "年报片段涉及锂精矿产量；整组产销、均价、单位成本尚未同口径取得。",
+      "kind": "composite",
+      "product_state": "pending"
+    },
+    {
+      "id": "f015",
+      "label": "产能、产能利用率和在建项目进度",
+      "dimension": "operating_quality",
+      "source_ref": "定期报告/项目公告",
+      "source_groups": [
+        "official_filing"
+      ],
+      "candidate_status": "部分可用",
+      "review_note": "年报、半年报片段涉及产能与进度；公司利用率和项目状态须由原文核准。",
+      "kind": "composite",
+      "product_state": "pending"
+    },
+    {
+      "id": "f016",
+      "label": "营业收入同比增速",
+      "dimension": "financial_trend",
+      "source_ref": "扶摇指标 `calculate_operating_income_yoy_growth_ratio`",
+      "source_groups": [
+        "fuyao"
+      ],
+      "candidate_status": "已取值",
+      "review_note": "同期比较；核对指标是否累计口径。",
+      "kind": "source",
+      "product_state": "pending"
+    },
+    {
+      "id": "f017",
+      "label": "营业利润同比增速",
+      "dimension": "financial_trend",
+      "source_ref": "扶摇指标 `calculate_operating_profit_yoy_growth_ratio`",
+      "source_groups": [
+        "fuyao"
+      ],
+      "candidate_status": "已取值",
+      "review_note": "基期为负或接近零时不宜只看百分比。",
+      "kind": "source",
+      "product_state": "pending"
+    },
+    {
+      "id": "f018",
+      "label": "归母净利润及同比增速",
+      "dimension": "financial_trend",
+      "source_ref": "扶摇利润表 `parent_holder_net_profit`；指标 `calculate_parent_holder_net_profit_yoy_growth_ratio`",
+      "source_groups": [
+        "fuyao"
+      ],
+      "candidate_status": "已取值",
+      "review_note": "绝对值与增速一起看。",
+      "kind": "composite",
+      "product_state": "pending"
+    },
+    {
+      "id": "f019",
+      "label": "扣非归母净利润",
+      "dimension": "financial_trend",
+      "source_ref": "iFinD `get_stock_financials`：扣除非经常性损益后的归母净利润",
+      "source_groups": [
+        "ifind"
+      ],
+      "candidate_status": "已取值",
+      "review_note": "与归母净利润并列，核对同一报告期。",
+      "kind": "source",
+      "product_state": "pending"
+    },
+    {
+      "id": "f020",
+      "label": "单季度利润",
+      "dimension": "financial_trend",
+      "source_ref": "iFinD `get_stock_financials`：单季度净利润、单季度归母净利润",
+      "source_groups": [
+        "ifind"
+      ],
+      "candidate_status": "已取值",
+      "review_note": "扶摇季度报表是否累计需另查，不能直接把累计数作单季。",
+      "kind": "source",
+      "product_state": "pending"
+    },
+    {
+      "id": "f021",
+      "label": "净利润",
+      "dimension": "financial_trend",
+      "source_ref": "扶摇利润表 `net_profit`",
+      "source_groups": [
+        "fuyao"
+      ],
+      "candidate_status": "已取值",
+      "review_note": "与归母净利润区分。",
+      "kind": "source",
+      "product_state": "implemented"
+    },
+    {
+      "id": "f022",
+      "label": "经营活动现金流净额",
+      "dimension": "financial_trend",
+      "source_ref": "扶摇现金流量表 `act_cash_flow_net`",
+      "source_groups": [
+        "fuyao"
+      ],
+      "candidate_status": "已取值",
+      "review_note": "现金流报告期与利润表对齐。",
+      "kind": "source",
+      "product_state": "implemented"
+    },
+    {
+      "id": "f023",
+      "label": "净利润现金含量 / 现金营运指数",
+      "dimension": "financial_trend",
+      "source_ref": "扶摇指标 `net_profit_cash_content`、`cash_operating_index`",
+      "source_groups": [
+        "fuyao"
+      ],
+      "candidate_status": "已取值",
+      "review_note": "指标定义需与原始报表交叉核对。",
+      "kind": "composite",
+      "product_state": "pending"
+    },
+    {
+      "id": "f024",
+      "label": "经营现金流 / 净利润",
+      "dimension": "financial_trend",
+      "source_ref": "`act_cash_flow_net / net_profit`",
+      "source_groups": [
+        "fuyao"
+      ],
+      "candidate_status": "可计算",
+      "review_note": "净利润为零或负时显示原值并提示比值局限。",
+      "kind": "computed",
+      "product_state": "implemented",
+      "formula_id": "operating_cash_flow_div_net_profit",
+      "input_fields": [
+        "act_cash_flow_net",
+        "net_profit"
+      ]
+    },
+    {
+      "id": "f025",
+      "label": "购建长期资产支付现金",
+      "dimension": "financial_trend",
+      "source_ref": "扶摇现金流量表 `pay_fixed_assets_etc_cash`",
+      "source_groups": [
+        "fuyao"
+      ],
+      "candidate_status": "已取值",
+      "review_note": "同时是自由现金流近似值的计算输入；不能等同全部资本开支。",
+      "kind": "source",
+      "product_state": "pending"
+    },
+    {
+      "id": "f026",
+      "label": "自由现金流近似值",
+      "dimension": "financial_trend",
+      "source_ref": "`act_cash_flow_net - pay_fixed_assets_etc_cash`",
+      "source_groups": [
+        "fuyao"
+      ],
+      "candidate_status": "可计算",
+      "review_note": "标为“近似”，不等同公司披露的自由现金流。",
+      "kind": "computed",
+      "product_state": "pending",
+      "formula_id": "operating_cash_flow_minus_fixed_asset_cash",
+      "input_fields": [
+        "act_cash_flow_net",
+        "pay_fixed_assets_etc_cash"
+      ]
+    },
+    {
+      "id": "f027",
+      "label": "货币资金 / 总债务 / 净现金",
+      "dimension": "financial_trend",
+      "source_ref": "扶摇资产负债表 `cash`、`total_debt`；`cash-total_debt`",
+      "source_groups": [
+        "fuyao"
+      ],
+      "candidate_status": "可计算",
+      "review_note": "净现金是自算；债务覆盖范围要核对。",
+      "kind": "computed",
+      "product_state": "pending",
+      "formula_id": "cash_minus_total_debt",
+      "input_fields": [
+        "cash",
+        "total_debt"
+      ]
+    },
+    {
+      "id": "f028",
+      "label": "资产负债率",
+      "dimension": "financial_trend",
+      "source_ref": "扶摇指标 `assets_debt_ratio`",
+      "source_groups": [
+        "fuyao"
+      ],
+      "candidate_status": "已取值",
+      "review_note": "与借款口径、权益变化一起看。",
+      "kind": "source",
+      "product_state": "pending"
+    },
+    {
+      "id": "f029",
+      "label": "ROE / 扣非 ROE / ROA",
+      "dimension": "financial_trend",
+      "source_ref": "扶摇指标 `index_weighted_avg_roe`、`index_deduct_weighted_avg_roe`、`total_assets_net_ratio`",
+      "source_groups": [
+        "fuyao"
+      ],
+      "candidate_status": "已取值",
+      "review_note": "不同分母及期间，横比时须统一口径。",
+      "kind": "composite",
+      "product_state": "pending"
+    },
+    {
+      "id": "f030",
+      "label": "存货及存货周转率",
+      "dimension": "financial_trend",
+      "source_ref": "iFinD `get_stock_financials`：存货；扶摇指标 `inventory_turnover_ratio`",
+      "source_groups": [
+        "fuyao",
+        "ifind"
+      ],
+      "candidate_status": "已取值",
+      "review_note": "锂价变化下关注存货跌价，存货金额不能直接推断减值。",
+      "kind": "composite",
+      "product_state": "pending"
+    },
+    {
+      "id": "f031",
+      "label": "应收账款及应收周转率",
+      "dimension": "financial_trend",
+      "source_ref": "扶摇资产负债表 `accounts_receivable`；指标 `receive_account_turnover_ratio`",
+      "source_groups": [
+        "fuyao"
+      ],
+      "candidate_status": "已取值",
+      "review_note": "与收入同步观察。",
+      "kind": "composite",
+      "product_state": "pending"
+    },
+    {
+      "id": "f032",
+      "label": "总资产增长率 / 总资产周转率",
+      "dimension": "financial_trend",
+      "source_ref": "扶摇指标 `total_assets_growth_ratio`、`total_assets_turnover_ratio`",
+      "source_groups": [
+        "fuyao"
+      ],
+      "candidate_status": "已取值",
+      "review_note": "扩张与资产使用效率配对观察。",
+      "kind": "composite",
+      "product_state": "pending"
+    },
+    {
+      "id": "f033",
+      "label": "每股收益",
+      "dimension": "financial_trend",
+      "source_ref": "扶摇利润表 `basic_eps`",
+      "source_groups": [
+        "fuyao"
+      ],
+      "candidate_status": "已取值",
+      "review_note": "与估值的 EPS 计算期保持一致。",
+      "kind": "source",
+      "product_state": "pending"
+    },
+    {
+      "id": "f034",
+      "label": "滚动市盈率",
+      "dimension": "valuation",
+      "source_ref": "扶摇估值 `pe_ttm`",
+      "source_groups": [
+        "fuyao"
+      ],
+      "candidate_status": "已取值",
+      "review_note": "盈利为负或接近零时不作低估/高估判断。",
+      "kind": "source",
+      "product_state": "pending"
+    },
+    {
+      "id": "f035",
+      "label": "最近报告期市盈率",
+      "dimension": "valuation",
+      "source_ref": "扶摇估值 `pe_mrq`",
+      "source_groups": [
+        "fuyao"
+      ],
+      "candidate_status": "已取值",
+      "review_note": "核对 MRQ 年化定义后再解释。",
+      "kind": "source",
+      "product_state": "pending"
+    },
+    {
+      "id": "f036",
+      "label": "最近报告期市净率",
+      "dimension": "valuation",
+      "source_ref": "扶摇估值 `pb_mrq`",
+      "source_groups": [
+        "fuyao"
+      ],
+      "candidate_status": "已取值",
+      "review_note": "与历史 PB 分位比较时必须统一来源和口径。",
+      "kind": "source",
+      "product_state": "pending"
+    },
+    {
+      "id": "f037",
+      "label": "滚动市销率",
+      "dimension": "valuation",
+      "source_ref": "扶摇估值 `ps_ttm`",
+      "source_groups": [
+        "fuyao"
+      ],
+      "candidate_status": "已取值",
+      "review_note": "不反映利润率和现金流质量。",
+      "kind": "source",
+      "product_state": "pending"
+    },
+    {
+      "id": "f038",
+      "label": "滚动市现率",
+      "dimension": "valuation",
+      "source_ref": "扶摇估值 `pcf_ttm`",
+      "source_groups": [
+        "fuyao"
+      ],
+      "candidate_status": "已取值",
+      "review_note": "经营现金流为负时不宜按普通倍数排序。",
+      "kind": "source",
+      "product_state": "pending"
+    },
+    {
+      "id": "f039",
+      "label": "自身历史估值区间/分位",
+      "dimension": "valuation",
+      "source_ref": "iFinD `get_stock_performance`：历史 PE/PB",
+      "source_groups": [
+        "ifind"
+      ],
+      "candidate_status": "部分可用",
+      "review_note": "返回 2023-09-26 至 2026-09-26 的 100 个日期点；含非交易日，采样频率、负 PE 处理和分位算法待定。",
+      "kind": "source",
+      "product_state": "pending"
+    },
+    {
+      "id": "f040",
+      "label": "可比公司估值中位数",
+      "dimension": "valuation",
+      "source_ref": "同日、同口径的同行估值",
+      "source_groups": [
+        "peer_group"
+      ],
+      "candidate_status": "部分可用",
+      "review_note": "已取一个同行样本；正式可比组、负值处理和同日口径待定。",
+      "kind": "source",
+      "product_state": "pending"
+    },
+    {
+      "id": "f041",
+      "label": "最新价、当日涨跌额和涨跌幅",
+      "dimension": "market",
+      "source_ref": "扶摇快照 `last_price`、`price_change`、`price_change_ratio_pct`",
+      "source_groups": [
+        "fuyao"
+      ],
+      "candidate_status": "已取值",
+      "review_note": "保留快照时间，非交易时段提示滞后。",
+      "kind": "composite",
+      "product_state": "pending"
+    },
+    {
+      "id": "f042",
+      "label": "日线开高低收",
+      "dimension": "market",
+      "source_ref": "扶摇日 K `open_price`、`high_price`、`low_price`、`close_price`",
+      "source_groups": [
+        "fuyao",
+        "price_series"
+      ],
+      "candidate_status": "已取值",
+      "review_note": "已取近 60 自然日、42 条；说明前复权。",
+      "kind": "source",
+      "product_state": "pending"
+    },
+    {
+      "id": "f043",
+      "label": "成交量与成交额",
+      "dimension": "market",
+      "source_ref": "扶摇快照/日 K `volume`、`turnover`",
+      "source_groups": [
+        "fuyao",
+        "price_series"
+      ],
+      "candidate_status": "已取值",
+      "review_note": "与区间平均比较前确认单位和交易日。",
+      "kind": "source",
+      "product_state": "pending"
+    },
+    {
+      "id": "f044",
+      "label": "20/60 交易日区间涨跌幅",
+      "dimension": "market",
+      "source_ref": "前复权日 K 收盘价自算",
+      "source_groups": [
+        "price_series"
+      ],
+      "candidate_status": "可计算",
+      "review_note": "扶摇已返回 123 条前复权日 K；输入充足，区间计算尚未写入产品。",
+      "kind": "computed",
+      "product_state": "pending",
+      "formula_id": "adjusted_close_return_20_60",
+      "input_fields": [
+        "forward_adjusted_daily_close"
+      ]
+    },
+    {
+      "id": "f045",
+      "label": "区间最大回撤与波动率",
+      "dimension": "market",
+      "source_ref": "iFinD `get_risk_indicators` 已返回；日 K 也可自算",
+      "source_groups": [
+        "ifind",
+        "price_series"
+      ],
+      "candidate_status": "已取值",
+      "review_note": "iFinD 分别返回回撤和年化波动率；同一观察窗口和复权口径仍需统一。",
+      "kind": "source",
+      "product_state": "pending"
+    },
+    {
+      "id": "f046",
+      "label": "量能变化",
+      "dimension": "market",
+      "source_ref": "`volume` 与过去 N 个交易日均量比较",
+      "source_groups": [
+        "fuyao"
+      ],
+      "candidate_status": "可计算",
+      "review_note": "原始日 K 已取；需固定 N 日窗口。",
+      "kind": "computed",
+      "product_state": "pending",
+      "formula_id": "volume_vs_n_day_average",
+      "input_fields": [
+        "daily_volume"
+      ]
+    },
+    {
+      "id": "f047",
+      "label": "相对行业区间表现",
+      "dimension": "market",
+      "source_ref": "个股日 K 对齐行业指数日 K / iFinD `sector_data`",
+      "source_groups": [
+        "ifind",
+        "price_series"
+      ],
+      "candidate_status": "部分可用",
+      "review_note": "板块涨跌幅可查，但个股与行业同区间、同分类的比较尚未完成。",
+      "kind": "source",
+      "product_state": "pending"
+    },
+    {
+      "id": "f048",
+      "label": "个股异动原因",
+      "dimension": "market",
+      "source_ref": "扶摇个股异动接口",
+      "source_groups": [
+        "fuyao"
+      ],
+      "candidate_status": "部分可用",
+      "review_note": "当日接口对天齐返回空列表，只表示当时无匹配记录；该能力不能回溯 2025-08-31 至 2026-08-31 的历史异动原因。**不包含主力资金。**",
+      "kind": "source",
+      "product_state": "pending"
+    },
+    {
+      "id": "f049",
+      "label": "行业板块涨跌幅及成分股数",
+      "dimension": "industry",
+      "source_ref": "iFinD `sector_data`：申万有色金属板块",
+      "source_groups": [
+        "ifind"
+      ],
+      "candidate_status": "已取值",
+      "review_note": "已查询到板块数据；还未与天齐同区间对齐。",
+      "kind": "composite",
+      "product_state": "pending"
+    },
+    {
+      "id": "f050",
+      "label": "碳酸锂现货价格",
+      "dimension": "industry",
+      "source_ref": "iFinD EDB：工业级碳酸锂现货价（日频，元/吨）",
+      "source_groups": [
+        "ifind"
+      ],
+      "candidate_status": "已取值",
+      "review_note": "不能直接当电池级或公司销售均价。",
+      "kind": "source",
+      "product_state": "pending"
+    },
+    {
+      "id": "f051",
+      "label": "氢氧化锂/锂精矿价格",
+      "dimension": "industry",
+      "source_ref": "iFinD EDB：现货指标、化工级 Li2O 6%～6.5% 锂精矿均价",
+      "source_groups": [
+        "ifind"
+      ],
+      "candidate_status": "已取值",
+      "review_note": "两项日序列已取；品级、地点、币种和单位分别注明。",
+      "kind": "source",
+      "product_state": "pending"
+    },
+    {
+      "id": "f052",
+      "label": "碳酸锂期货价格",
+      "dimension": "industry",
+      "source_ref": "iFinD EDB：广期所活跃合约收盘价",
+      "source_groups": [
+        "ifind"
+      ],
+      "candidate_status": "已取值",
+      "review_note": "日序列已取；活跃合约换月与现货不可混用。",
+      "kind": "source",
+      "product_state": "pending"
+    },
+    {
+      "id": "f053",
+      "label": "同行收入、毛利率、ROE、资产负债率",
+      "dimension": "industry",
+      "source_ref": "同口径同行财报/指标",
+      "source_groups": [
+        "peer_group"
+      ],
+      "candidate_status": "部分可用",
+      "review_note": "候选同行赣锋锂业（002460.SZ）的对应数据已实测；完整可比组与统一口径尚未确定。",
+      "kind": "source",
+      "product_state": "pending"
+    },
+    {
+      "id": "f054",
+      "label": "同行估值与行情比较",
+      "dimension": "industry",
+      "source_ref": "同日估值、同区间前复权行情",
+      "source_groups": [
+        "source_to_verify"
+      ],
+      "candidate_status": "部分可用",
+      "review_note": "候选同行赣锋锂业的估值快照和 123 条日 K 已实测；可比组、同日和同区间处理待定。",
+      "kind": "source",
+      "product_state": "pending"
+    },
+    {
+      "id": "f055",
+      "label": "公告标题、日期、相关片段",
+      "dimension": "events",
+      "source_ref": "iFinD `search_notice`",
+      "source_groups": [
+        "ifind"
+      ],
+      "candidate_status": "已取值",
+      "review_note": "已检索到天齐相关公告片段；片段不是完整公告。",
+      "kind": "source",
+      "product_state": "pending"
+    },
+    {
+      "id": "f056",
+      "label": "公告原文链接与页码",
+      "dimension": "events",
+      "source_ref": "深交所/巨潮等原文定位",
+      "source_groups": [
+        "official_filing"
+      ],
+      "candidate_status": "部分可用",
+      "review_note": "已取得五份官方定期报告原文及链接；尚未提取页码，也未取得全年临时公告原文。iFinD 检索结果只有片段，不能代替原文。",
+      "kind": "source",
+      "product_state": "pending"
+    },
+    {
+      "id": "f057",
+      "label": "定期报告期末与实际披露日",
+      "dimension": "events",
+      "source_ref": "扶摇报表 `period_end_ms`、`report_date_ms`；iFinD 公告日期",
+      "source_groups": [
+        "fuyao",
+        "ifind",
+        "official_filing"
+      ],
+      "candidate_status": "部分可用",
+      "review_note": "扶摇期末字段有值、iFinD 公告有日期；扶摇最新 `report_date_ms` 等于期末，实际披露日须以原公告核准。",
+      "kind": "source",
+      "product_state": "pending"
+    },
+    {
+      "id": "f058",
+      "label": "项目投产、扩产、停产或并购",
+      "dimension": "events",
+      "source_ref": "定期报告/临时公告片段及原文",
+      "source_groups": [
+        "official_filing"
+      ],
+      "candidate_status": "部分可用",
+      "review_note": "公告检索返回相关片段；尚未逐项识别事件和核准原文，不能直接列为确定事件。",
+      "kind": "source",
+      "product_state": "pending"
+    },
+    {
+      "id": "f059",
+      "label": "分红、送股、配股",
+      "dimension": "events",
+      "source_ref": "扶摇除复权事件流",
+      "source_groups": [
+        "fuyao"
+      ],
+      "candidate_status": "部分可用",
+      "review_note": "扶摇 2024-01-01 至 2026-09-26 曾返回 1 条分红相关记录；本次一年窗口返回业务 `code=3002`（无匹配事件）。两次范围不同，不可推断全年没有其他公司行为。",
+      "kind": "source",
+      "product_state": "pending"
+    },
+    {
+      "id": "f060",
+      "label": "股权质押及控股股东持股",
+      "dimension": "events",
+      "source_ref": "iFinD `get_stock_shareholders` / `get_stock_events`",
+      "source_groups": [
+        "ifind"
+      ],
+      "candidate_status": "已取值",
+      "review_note": "返回持股、质押公告日期及公司累计质押占总股本比例；控股股东质押占其持股比例本次为空，不能当零。",
+      "kind": "composite",
+      "product_state": "pending"
+    },
+    {
+      "id": "f061",
+      "label": "限售股解禁",
+      "dimension": "events",
+      "source_ref": "iFinD `get_stock_events`：解禁日期、流通数量",
+      "source_groups": [
+        "ifind"
+      ],
+      "candidate_status": "已取值",
+      "review_note": "核对计划值与实际流通值。",
+      "kind": "source",
+      "product_state": "pending"
+    },
+    {
+      "id": "f062",
+      "label": "新闻标题、日期和链接",
+      "dimension": "events",
+      "source_ref": "iFinD `search_news`",
+      "source_groups": [
+        "ifind"
+      ],
+      "candidate_status": "已取值",
+      "review_note": "已返回资讯字段；与公司公告分层，新闻说法需核对。",
+      "kind": "composite",
+      "product_state": "pending"
+    },
+    {
+      "id": "f063",
+      "label": "流动比率、速动比率、现金比率",
+      "dimension": "risk",
+      "source_ref": "扶摇指标 `current_ratio`、`quick_ratio`、`cash_ratio`",
+      "source_groups": [
+        "fuyao"
+      ],
+      "candidate_status": "已取值",
+      "review_note": "与短期债务期限结构配合，不能单独判断偿债能力。",
+      "kind": "source",
+      "product_state": "pending"
+    },
+    {
+      "id": "f064",
+      "label": "利息保障倍数 / 长期负债权益比率",
+      "dimension": "risk",
+      "source_ref": "扶摇指标 `earned_interest_multiple`、`long_term_debt_equity_ratio`",
+      "source_groups": [
+        "fuyao"
+      ],
+      "candidate_status": "已取值",
+      "review_note": "核对低利润期的分母与负值含义。",
+      "kind": "composite",
+      "product_state": "pending"
+    },
+    {
+      "id": "f065",
+      "label": "现金覆盖总债务",
+      "dimension": "risk",
+      "source_ref": "`cash / total_debt`",
+      "source_groups": [
+        "fuyao"
+      ],
+      "candidate_status": "可计算",
+      "review_note": "总债务范围与受限资金需核实。",
+      "kind": "computed",
+      "product_state": "pending",
+      "formula_id": "cash_div_total_debt",
+      "input_fields": [
+        "cash",
+        "total_debt"
+      ]
+    },
+    {
+      "id": "f066",
+      "label": "利润与经营现金流背离",
+      "dimension": "risk",
+      "source_ref": "同期 `net_profit`、`act_cash_flow_net`",
+      "source_groups": [
+        "fuyao"
+      ],
+      "candidate_status": "可计算",
+      "review_note": "先对齐累计期次；背离只是需调查信号。",
+      "kind": "computed",
+      "product_state": "implemented",
+      "formula_id": "profit_cash_sign_alignment",
+      "input_fields": [
+        "net_profit",
+        "act_cash_flow_net"
+      ]
+    },
+    {
+      "id": "f067",
+      "label": "股价波动率与最大回撤",
+      "dimension": "risk",
+      "source_ref": "iFinD `get_risk_indicators` / 日 K 自算",
+      "source_groups": [
+        "ifind",
+        "price_series"
+      ],
+      "candidate_status": "已取值",
+      "review_note": "iFinD 分别返回两项值；展示时需标明窗口与年化口径。",
+      "kind": "source",
+      "product_state": "pending"
+    },
+    {
+      "id": "f068",
+      "label": "累计质押占总股本比例",
+      "dimension": "risk",
+      "source_ref": "iFinD `get_stock_events`",
+      "source_groups": [
+        "ifind"
+      ],
+      "candidate_status": "已取值",
+      "review_note": "是股权质押说明的证据；不能混作控股股东质押占其持股比例。",
+      "kind": "source",
+      "product_state": "pending"
+    },
+    {
+      "id": "f069",
+      "label": "存货跌价和资产减值",
+      "dimension": "risk",
+      "source_ref": "iFinD `get_stock_financials`；定期报告附注",
+      "source_groups": [
+        "ifind",
+        "official_filing"
+      ],
+      "candidate_status": "部分可用",
+      "review_note": "已返回准备及损失字段；请求日期与实际指标参数的报告期需核对，并查财报附注。",
+      "kind": "composite",
+      "product_state": "pending"
+    },
+    {
+      "id": "f070",
+      "label": "锂价变化的经营敏感性",
+      "dimension": "risk",
+      "source_ref": "公司分部披露＋同品级价格序列",
+      "source_groups": [
+        "source_to_verify"
+      ],
+      "candidate_status": "待核",
+      "review_note": "有部分价格与分业务数据，但没有可验证的敏感性模型；不能简单用市价乘产量推利润。",
+      "kind": "source",
+      "product_state": "pending"
+    },
+    {
+      "id": "f071",
+      "label": "海外资产、项目、政策及汇率敞口",
+      "dimension": "risk",
+      "source_ref": "公司公告、财报附注",
+      "source_groups": [
+        "official_filing"
+      ],
+      "candidate_status": "部分可用",
+      "review_note": "公告检索有相关片段；敞口金额、地区和事件仍需财报原文核对。",
+      "kind": "composite",
+      "product_state": "pending"
+    },
+    {
+      "id": "f072",
+      "label": "扩产项目进度与资本开支压力",
+      "dimension": "risk",
+      "source_ref": "项目公告＋`pay_fixed_assets_etc_cash`",
+      "source_groups": [
+        "official_filing"
+      ],
+      "candidate_status": "部分可用",
+      "review_note": "项目风险片段和现金支出可查；综合压力判断还需原公告、同口径现金流和债务信息。",
+      "kind": "source",
+      "product_state": "pending"
+    }
+  ]
+}
