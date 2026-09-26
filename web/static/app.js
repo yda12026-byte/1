@@ -277,6 +277,34 @@ function renderOverview(runs) {
   }
   return grid;
 }
+// 按起始月份每三个月取该月首个有数据的日期；首末点始终保留。
+function quarterTickIndices(dates) {
+  if (dates.length < 2) return [0];
+  const [year, month] = dates[0].slice(0, 7).split('-').map(Number);
+  const ticks = [0];
+  for (let offset = 3; ; offset += 3) {
+    const total = year * 12 + month - 1 + offset;
+    const boundary = `${Math.floor(total / 12)}-${String(total % 12 + 1).padStart(2, '0')}-01`;
+    if (boundary >= dates[dates.length - 1]) break;
+    const i = dates.findIndex(day => day >= boundary);
+    if (i < 0 || i >= dates.length - 1) break;
+    if (i > ticks[ticks.length - 1]) ticks.push(i);
+  }
+  ticks.push(dates.length - 1);
+  return ticks;
+}
+function drawQuarterBands(node, svg, ticks, x, top, height) {
+  for (let k = 0; k < ticks.length - 1; k++) {
+    if (k % 2) node('rect', { x: x(ticks[k]), y: top, width: x(ticks[k + 1]) - x(ticks[k]), height, class: 'quarter-band' }, svg);
+    if (k) node('line', { x1: x(ticks[k]), x2: x(ticks[k]), y1: top, y2: top + height, class: 'quarter-boundary' }, svg);
+  }
+}
+function drawQuarterAxis(node, svg, dates, ticks, x, y) {
+  ticks.forEach((i, k) => {
+    const anchor = k === 0 ? 'start' : k === ticks.length - 1 ? 'end' : 'middle';
+    node('text', { x: x(i), y, class: 'axis quarter-tick', 'text-anchor': anchor }, svg).textContent = dates[i].slice(0, 7);
+  });
+}
 // 天齐与三家同行期初 = 100 的前复权走势，阴影为天齐最大回撤区间，▲ 为官方事件日期；只做时间并列，不做归因。
 function renderPriceChart(chart) {
   const svgNS = 'http://www.w3.org/2000/svg';
@@ -300,7 +328,9 @@ function renderPriceChart(chart) {
   const svg = node('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img',
     'aria-label': `期末指数：${summary}；天齐锂业最大回撤 ${chart.drawdown.pct}%（${chart.drawdown.start} 至 ${chart.drawdown.end}）；标出 ${chart.markers.length} 份事件公告` }, holder);
 
-  // 回撤阴影在最底层
+  const ticks = quarterTickIndices(dates);
+  drawQuarterBands(node, svg, ticks, x, T, H - T - B);
+  // 回撤阴影覆盖时间分段，保留原有的最大回撤语义。
   const d0 = index[chart.drawdown.start], d1 = index[chart.drawdown.end];
   node('rect', { x: x(d0), y: T, width: Math.max(x(d1) - x(d0), 1), height: H - T - B, class: 'drawdown' }, svg);
   const ddLabel = node('text', { x: (x(d0) + x(d1)) / 2, y: T + 12, class: 'drawdown-label', 'text-anchor': 'middle' }, svg);
@@ -311,20 +341,21 @@ function renderPriceChart(chart) {
     node('line', { x1: L, x2: W - R, y1: y(v), y2: y(v), class: v === 100 ? 'grid base' : 'grid' }, svg);
     const label = node('text', { x: L - 6, y: y(v) + 4, class: 'axis', 'text-anchor': 'end' }, svg); label.textContent = v;
   }
-  for (const [i, anchor] of [[0, 'start'], [n - 1, 'end']]) {
-    const t = node('text', { x: x(i), y: H - B + 16, class: 'axis', 'text-anchor': anchor }, svg); t.textContent = dates[i];
-  }
-  // 同行先画（灰色细线），天齐最后画（强调色粗线）
-  const ordered = [...chart.series.filter(s => s.role !== 'subject'), subject];
+  drawQuarterAxis(node, svg, dates, ticks, x, H - B + 16);
+  // 三家同行按固定顺序赋予颜色与线型，天齐最后画在最上层。
+  const peers = chart.series.filter(s => s.role !== 'subject');
+  const peerNumber = new Map(peers.map((s, i) => [s.code, i + 1]));
+  const seriesClass = s => s.role === 'subject' ? 'subject' : `peer peer-${peerNumber.get(s.code)}`;
+  const ordered = [...peers, subject];
   for (const s of ordered) {
     node('path', { d: s.values.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(''),
-      class: s.role === 'subject' ? 'price-line subject' : 'price-line peer' }, svg);
+      class: `price-line ${seriesClass(s)}` }, svg);
   }
   // 线尾直接标名称，按纵向位置错开避免重叠
   const ends = chart.series.map(s => ({ s, y: y(last(s)) })).sort((a, b) => a.y - b.y);
   for (let i = 1; i < ends.length; i++) ends[i].y = Math.max(ends[i].y, ends[i - 1].y + 13);
   for (const e of ends) {
-    const label = node('text', { x: W - R + 6, y: e.y + 4, class: e.s.role === 'subject' ? 'end-label subject' : 'end-label' }, svg);
+    const label = node('text', { x: W - R + 6, y: e.y + 4, class: `end-label ${seriesClass(e.s)}` }, svg);
     label.textContent = `${e.s.label} ${last(e.s).toFixed(0)}`;
   }
   const byDay = {};
@@ -354,11 +385,11 @@ function renderPriceChart(chart) {
   svg.addEventListener('mouseleave', () => { cross.setAttribute('visibility', 'hidden'); tip.hidden = true; });
   const legend = el('div', 'chart-legend');
   addText(legend, 'span', 'key subject', '天齐锂业');
-  addText(legend, 'span', 'key peer', '同行（赣锋锂业、中矿资源、永兴材料）');
+  for (const s of peers) addText(legend, 'span', `key peer peer-${peerNumber.get(s.code)}`, s.label);
   addText(legend, 'span', 'key shade', '最大回撤区间');
   addText(legend, 'span', 'key event', '▲ 事件公告日');
   figure.append(legend);
-  addText(figure, 'div', 'chart-note', `${chart.note}。▲ 共 ${chart.markers.length} 份公告（同日合并），悬停看标题，点击打开原文。来源：${chart.source}。`);
+  addText(figure, 'div', 'chart-note', `${chart.note}。灰白底色仅区分季度时间段。▲ 共 ${chart.markers.length} 份公告（同日合并），悬停看标题，点击打开原文。来源：${chart.source}。`);
   return figure;
 }
 // 四类锂价期初 = 100 的走势：铜色深浅加线型区分，锂精矿最深；线尾直接标名称。
@@ -381,12 +412,14 @@ function renderLithiumChart(chart) {
   const lastValue = s => [...s.values].reverse().find(v => v !== null);
   const svg = node('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img',
     'aria-label': `期末指数：${chart.series.map(s => `${short[s.key]} ${lastValue(s).toFixed(2)}`).join('，')}` }, holder);
+  const ticks = quarterTickIndices(dates);
+  drawQuarterBands(node, svg, ticks, x, T, H - T - B);
   const step = (hi - lo) > 150 ? 50 : 25;
   for (let v = Math.ceil(y0 / step) * step; v <= y1; v += step) {
     node('line', { x1: L, x2: W - R, y1: y(v), y2: y(v), class: v === 100 ? 'grid base' : 'grid' }, svg);
     node('text', { x: L - 6, y: y(v) + 4, class: 'axis', 'text-anchor': 'end' }, svg).textContent = v;
   }
-  for (const [i, anchor] of [[0, 'start'], [n - 1, 'end']]) node('text', { x: x(i), y: H - B + 16, class: 'axis', 'text-anchor': anchor }, svg).textContent = dates[i];
+  drawQuarterAxis(node, svg, dates, ticks, x, H - B + 16);
   for (const s of [...chart.series].reverse()) {  // darkest (锂精矿) drawn last, on top
     let d = '', pen = false;
     s.values.forEach((v, i) => { if (v === null) { pen = false; return; } d += `${pen ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`; pen = true; });
@@ -411,7 +444,7 @@ function renderLithiumChart(chart) {
   for (const s of chart.series) { const k = addText(legend, 'span', `key li ${styles[s.key]}`, short[s.key]); k.title = s.label; }
   figure.append(legend);
   const dropped = chart.series.filter(s => s.dropped_non_trading_rows).map(s => `${short[s.key]} ${s.dropped_non_trading_rows} 行`).join('、');
-  addText(figure, 'div', 'chart-note', `${chart.note}。基期均为 ${chart.series[0].base_date}；已剔除非交易日数据：${dropped || '无'}。来源：${chart.source}。`);
+  addText(figure, 'div', 'chart-note', `${chart.note}。灰白底色仅区分季度时间段。基期均为 ${chart.series[0].base_date}；已剔除非交易日数据：${dropped || '无'}。来源：${chart.source}。`);
   return figure;
 }
 // 估值历史位置：PB 在上、PE(TTM) 在下，共用时间轴；虚线为三分位边界，圆点为截止日。
@@ -426,9 +459,11 @@ function renderValuationChart(chart) {
   const holder = el('div', 'chart-holder'); figure.append(holder);
   const svg = node('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img',
     'aria-label': chart.panels.map(p => `${p.label} 截止 ${p.current}，近一年分位 ${p.percentile ?? '不适用'}%（${p.band ?? '不适用'}）`).join('；') }, holder);
+  const ticks = quarterTickIndices(dates);
   const scales = chart.panels.map((p, k) => {
     const top = T + k * (PH + GAP), lo = Math.min(...p.values), hi = Math.max(...p.values), pad = (hi - lo) * 0.08 || 1;
     const y = v => top + PH * (1 - (v - (lo - pad)) / ((hi + pad) - (lo - pad)));
+    drawQuarterBands(node, svg, ticks, x, top, PH);
     node('text', { x: L, y: top - 5, class: 'panel-title' }, svg).textContent = p.label;
     for (const v of [lo, hi]) {
       node('line', { x1: L, x2: W - R, y1: y(v), y2: y(v), class: 'grid' }, svg);
@@ -449,7 +484,7 @@ function renderValuationChart(chart) {
     return { p, y, top };
   });
   const bottom = T + chart.panels.length * (PH + GAP) - GAP;
-  for (const [i, anchor] of [[0, 'start'], [n - 1, 'end']]) node('text', { x: x(i), y: bottom + 16, class: 'axis', 'text-anchor': anchor }, svg).textContent = dates[i];
+  drawQuarterAxis(node, svg, dates, ticks, x, bottom + 16);
   if (chart.switch_date) {
     const i = dates.indexOf(chart.switch_date), pe = scales.find(s => s.p.key === 'pe_ttm');
     node('line', { x1: x(i), x2: x(i), y1: pe.top, y2: pe.top + PH, class: 'switch-line' }, svg);
@@ -466,7 +501,7 @@ function renderValuationChart(chart) {
     tip.hidden = false; tip.style.left = `${Math.min(Math.max(x(i) / W * 100, 18), 70)}%`;
   });
   svg.addEventListener('mouseleave', () => { cross.setAttribute('visibility', 'hidden'); tip.hidden = true; });
-  addText(figure, 'div', 'chart-note', `${chart.note}。来源：${chart.source}。`);
+  addText(figure, 'div', 'chart-note', `${chart.note}。灰白底色仅区分季度时间段。来源：${chart.source}。`);
   return figure;
 }
 function renderProgress(question) {
