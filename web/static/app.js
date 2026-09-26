@@ -454,5 +454,6 @@ fetch('/api/bootstrap').then(response => response.json()).then(data => {
     more.append(box); examples.append(more);
   }
   const pill = document.querySelector('.live-pill');
-  if (pill && product.status === 'fixed') pill.lastChild.textContent = ' 六维诊断可运行';
+  const ready = data.dimensions.filter(dim => dim.status === 'implemented').length;
+  if (pill && product.status === 'fixed') pill.lastChild.textContent = ` ${'零一二三四五六七八九十'[ready] || ready}维诊断可运行`;
 }).catch(() => { const banner = document.querySelector('#snapshot-banner'); banner.classList.add('unavailable'); banner.textContent = '服务状态暂时无法读取。'; });
