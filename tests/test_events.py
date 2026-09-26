@@ -97,7 +97,14 @@ class EventsRunTests(unittest.TestCase):
 
     def test_price_chart_lists_only_event_categories(self):
         chart = price_chart(product_payload(events=True))
-        self.assertEqual(len(chart["points"]), 242)
+        self.assertEqual([s["label"] for s in chart["series"]], ["天齐锂业", "赣锋锂业", "中矿资源", "永兴材料"])
+        self.assertEqual({len(s["values"]) for s in chart["series"]}, {242})
+        self.assertEqual({s["values"][0] for s in chart["series"]}, {100.0})
+        self.assertEqual([s["values"][-1] for s in chart["series"]], [120.0, 130.0, 140.0, 150.0])
+        # Same routine as the market dimension: peak on day 100 (150), trough on day 150 (90).
+        self.assertEqual((chart["drawdown"]["start"], chart["drawdown"]["end"], chart["drawdown"]["pct"]),
+                         (chart["dates"][100], chart["dates"][150], -40.0))
+        self.assertIn("历史走势不预示未来", chart["note"])
         self.assertEqual({m["category"] for m in chart["markers"]}, {"定期报告", "项目或扩产", "利润分配", "诉讼仲裁", "业绩预告", "资本运作"})
         self.assertIn("不表示因果关系", chart["note"])
         self.assertEqual(price_chart(product_payload())["markers"], [])

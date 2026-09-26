@@ -277,58 +277,88 @@ function renderOverview(runs) {
   }
   return grid;
 }
-// 前复权收盘价折线 + 官方事件日期标记；只做时间并列，不做归因。
+// 天齐与三家同行期初 = 100 的前复权走势，阴影为天齐最大回撤区间，▲ 为官方事件日期；只做时间并列，不做归因。
 function renderPriceChart(chart) {
   const svgNS = 'http://www.w3.org/2000/svg';
-  const W = 720, H = 240, L = 48, R = 12, T = 14, B = 44;
-  const pts = chart.points, closes = pts.map(p => p[1]);
-  const lo = Math.min(...closes), hi = Math.max(...closes), pad = (hi - lo) * 0.08 || 1;
+  const W = 720, H = 260, L = 40, R = 70, T = 14, B = 48;
+  const dates = chart.dates, n = dates.length;
+  const subject = chart.series.find(s => s.role === 'subject');
+  const all = chart.series.flatMap(s => s.values);
+  const lo = Math.min(...all), hi = Math.max(...all), pad = (hi - lo) * 0.06 || 1;
   const y0 = lo - pad, y1 = hi + pad;
-  const x = i => L + (W - L - R) * i / (pts.length - 1);
+  const x = i => L + (W - L - R) * i / (n - 1);
   const y = v => T + (H - T - B) * (1 - (v - y0) / (y1 - y0));
-  const index = Object.fromEntries(pts.map((p, i) => [p[0], i]));
-  const nearest = day => { if (day in index) return index[day]; const i = pts.findIndex(p => p[0] >= day); return i < 0 ? pts.length - 1 : i; };
-  const node = (tag, attrs, parent) => { const n = document.createElementNS(svgNS, tag); for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v); if (parent) parent.append(n); return n; };
+  const index = Object.fromEntries(dates.map((d, i) => [d, i]));
+  const nearest = day => { if (day in index) return index[day]; const i = dates.findIndex(d => d >= day); return i < 0 ? n - 1 : i; };
+  const node = (tag, attrs, parent) => { const e = document.createElementNS(svgNS, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); if (parent) parent.append(e); return e; };
 
   const figure = el('figure', 'price-chart');
-  addText(figure, 'figcaption', 'chart-title', `天齐锂业前复权收盘价与官方事件日期（${pts[0][0]} 至 ${pts[pts.length - 1][0]}）`);
+  addText(figure, 'figcaption', 'chart-title', `天齐锂业与三家同行股价走势（期初 = 100，前复权，${dates[0]} 至 ${dates[n - 1]}）`);
   const holder = el('div', 'chart-holder'); figure.append(holder);
-  const svg = node('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': `收盘价折线，区间最低 ${lo} 元、最高 ${hi} 元，标出 ${chart.markers.length} 份事件公告` }, holder);
-  for (const v of [lo, (lo + hi) / 2, hi]) {
-    node('line', { x1: L, x2: W - R, y1: y(v), y2: y(v), class: 'grid' }, svg);
-    const label = node('text', { x: L - 6, y: y(v) + 4, class: 'axis', 'text-anchor': 'end' }, svg); label.textContent = v.toFixed(2);
+  const last = s => s.values[n - 1];
+  const summary = chart.series.map(s => `${s.label} ${last(s).toFixed(2)}`).join('，');
+  const svg = node('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img',
+    'aria-label': `期末指数：${summary}；天齐锂业最大回撤 ${chart.drawdown.pct}%（${chart.drawdown.start} 至 ${chart.drawdown.end}）；标出 ${chart.markers.length} 份事件公告` }, holder);
+
+  // 回撤阴影在最底层
+  const d0 = index[chart.drawdown.start], d1 = index[chart.drawdown.end];
+  node('rect', { x: x(d0), y: T, width: Math.max(x(d1) - x(d0), 1), height: H - T - B, class: 'drawdown' }, svg);
+  const ddLabel = node('text', { x: (x(d0) + x(d1)) / 2, y: T + 12, class: 'drawdown-label', 'text-anchor': 'middle' }, svg);
+  ddLabel.textContent = `最大回撤 ${chart.drawdown.pct}%`;
+
+  const step = (hi - lo) > 120 ? 50 : 25;
+  for (let v = Math.ceil(y0 / step) * step; v <= y1; v += step) {
+    node('line', { x1: L, x2: W - R, y1: y(v), y2: y(v), class: v === 100 ? 'grid base' : 'grid' }, svg);
+    const label = node('text', { x: L - 6, y: y(v) + 4, class: 'axis', 'text-anchor': 'end' }, svg); label.textContent = v;
   }
-  for (const [i, anchor] of [[0, 'start'], [pts.length - 1, 'end']]) {
-    const t = node('text', { x: x(i), y: H - B + 16, class: 'axis', 'text-anchor': anchor }, svg); t.textContent = pts[i][0];
+  for (const [i, anchor] of [[0, 'start'], [n - 1, 'end']]) {
+    const t = node('text', { x: x(i), y: H - B + 16, class: 'axis', 'text-anchor': anchor }, svg); t.textContent = dates[i];
   }
-  node('path', { d: pts.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p[1]).toFixed(1)}`).join(''), class: 'price-line' }, svg);
+  // 同行先画（灰色细线），天齐最后画（强调色粗线）
+  const ordered = [...chart.series.filter(s => s.role !== 'subject'), subject];
+  for (const s of ordered) {
+    node('path', { d: s.values.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(''),
+      class: s.role === 'subject' ? 'price-line subject' : 'price-line peer' }, svg);
+  }
+  // 线尾直接标名称，按纵向位置错开避免重叠
+  const ends = chart.series.map(s => ({ s, y: y(last(s)) })).sort((a, b) => a.y - b.y);
+  for (let i = 1; i < ends.length; i++) ends[i].y = Math.max(ends[i].y, ends[i - 1].y + 13);
+  for (const e of ends) {
+    const label = node('text', { x: W - R + 6, y: e.y + 4, class: e.s.role === 'subject' ? 'end-label subject' : 'end-label' }, svg);
+    label.textContent = `${e.s.label} ${last(e.s).toFixed(0)}`;
+  }
   const byDay = {};
   for (const m of chart.markers) (byDay[m.date] ||= []).push(m);
-  const markerY = H - B + 30;
+  const markerY = H - B + 32;
   for (const [day, items] of Object.entries(byDay)) {
-    const i = nearest(day), cx = x(i);
-    node('line', { x1: cx, x2: cx, y1: y(pts[i][1]), y2: markerY - 6, class: 'event-stem' }, svg);
-    node('circle', { cx, cy: y(pts[i][1]), r: 3.5, class: 'event-dot' }, svg);
+    const i = nearest(day), cx = x(i), cy = y(subject.values[i]);
+    node('line', { x1: cx, x2: cx, y1: cy, y2: markerY - 6, class: 'event-stem' }, svg);
+    node('circle', { cx, cy, r: 3.5, class: 'event-dot' }, svg);
     const link = node('a', { href: items[0].url, target: '_blank', rel: 'noopener noreferrer' }, svg);
     node('path', { d: `M${cx},${markerY - 6}l5,9h-10z`, class: 'event-mark' }, link);
     node('rect', { x: cx - 8, y: markerY - 10, width: 16, height: 18, class: 'hit' }, link);
-    const title = node('title', {}, link);
-    title.textContent = `${day}\n${items.map(m => `【${m.category}】${m.title}`).join('\n')}\n点击打开第一份公告原文`;
+    node('title', {}, link).textContent = `${day}\n${items.map(m => `【${m.category}】${m.title}`).join('\n')}\n点击打开第一份公告原文`;
   }
   const cross = node('line', { y1: T, y2: H - B, class: 'crosshair', visibility: 'hidden' }, svg);
   const tip = addText(holder, 'div', 'chart-tip'); tip.hidden = true;
   svg.addEventListener('mousemove', event => {
     const box = svg.getBoundingClientRect(), px = (event.clientX - box.left) * W / box.width;
     if (px < L || px > W - R) { cross.setAttribute('visibility', 'hidden'); tip.hidden = true; return; }
-    const i = Math.round((px - L) / (W - L - R) * (pts.length - 1)), [day, close] = pts[i];
+    const i = Math.round((px - L) / (W - L - R) * (n - 1));
     cross.setAttribute('x1', x(i)); cross.setAttribute('x2', x(i)); cross.setAttribute('visibility', 'visible');
-    const events = byDay[day] || [];
-    tip.textContent = `${day}　收盘 ${close.toFixed(2)} 元${events.length ? '\n' + events.map(m => `【${m.category}】${m.title}`).join('\n') : ''}`;
-    tip.hidden = false;
-    tip.style.left = `${Math.min(Math.max(x(i) / W * 100, 12), 78)}%`;
+    const lines = [dates[i], ...[subject, ...chart.series.filter(s => s !== subject)].map(s => `${s.label}　${s.values[i].toFixed(2)}（收盘 ${s.closes[i].toFixed(2)} 元）`)];
+    for (const m of byDay[dates[i]] || []) lines.push(`【${m.category}】${m.title}`);
+    tip.textContent = lines.join('\n'); tip.hidden = false;
+    tip.style.left = `${Math.min(Math.max(x(i) / W * 100, 22), 70)}%`;
   });
   svg.addEventListener('mouseleave', () => { cross.setAttribute('visibility', 'hidden'); tip.hidden = true; });
-  addText(figure, 'div', 'chart-note', `▲ 为重要事项的公告日期（共 ${chart.markers.length} 份，同日合并为一个标记），悬停查看标题，点击打开原文。${chart.note}。来源：${chart.source}。`);
+  const legend = el('div', 'chart-legend');
+  addText(legend, 'span', 'key subject', '天齐锂业');
+  addText(legend, 'span', 'key peer', '同行（赣锋锂业、中矿资源、永兴材料）');
+  addText(legend, 'span', 'key shade', '最大回撤区间');
+  addText(legend, 'span', 'key event', '▲ 事件公告日');
+  figure.append(legend);
+  addText(figure, 'div', 'chart-note', `${chart.note}。▲ 共 ${chart.markers.length} 份公告（同日合并），悬停看标题，点击打开原文。来源：${chart.source}。`);
   return figure;
 }
 function renderProgress(question) {

@@ -206,7 +206,20 @@ button { cursor: pointer; }
 .price-chart svg { display: block; width: 100%; height: auto; overflow: visible; }
 .price-chart .grid { stroke: var(--line); stroke-width: 1; }
 .price-chart .axis { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
-.price-chart .price-line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; }
+.price-chart .price-line { fill: none; stroke-linejoin: round; }
+.price-chart .price-line.subject { stroke: var(--accent); stroke-width: 2.5; }
+.price-chart .price-line.peer { stroke: var(--faint); stroke-width: 1.5; }
+.price-chart .grid.base { stroke: var(--line-2); stroke-dasharray: 4 3; }
+.price-chart .drawdown { fill: var(--down-bg); opacity: .7; }
+.price-chart .drawdown-label { fill: var(--down); font-size: 11px; font-weight: 700; }
+.price-chart .end-label { fill: var(--muted); font-size: 11px; }
+.price-chart .end-label.subject { fill: var(--ink); font-weight: 700; }
+.chart-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; color: var(--ink-2); margin-top: 8px; }
+.chart-legend .key { display: inline-flex; align-items: center; gap: 6px; }
+.chart-legend .key.subject::before, .chart-legend .key.peer::before { content: ''; width: 18px; height: 0; border-top: 2.5px solid var(--accent); }
+.chart-legend .key.peer::before { border-top: 1.5px solid var(--faint); }
+.chart-legend .key.shade::before { content: ''; width: 12px; height: 12px; border-radius: 2px; background: var(--down-bg); }
+.chart-legend .key.event { color: var(--bronze); }
 .price-chart .event-stem { stroke: var(--bronze); stroke-width: 1; stroke-dasharray: 2 3; opacity: .55; }
 .price-chart .event-dot { fill: var(--card); stroke: var(--bronze); stroke-width: 2; }
 .price-chart .event-mark { fill: var(--bronze); }

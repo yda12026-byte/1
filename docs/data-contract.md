@@ -108,4 +108,4 @@
 - **快照 `events` 块（可选）**：`announcements`（公告编号、披露日、标题、类别、PDF 链接；定期报告附 `periodic.kind/deadline`）、`excerpts`（类别、页码、程序摘录原文、`spot_check.status` ∈ consistent / inconsistent / pending / not_sampled）、`forecasts`（类型、归母净利润区间，单位万元，页码与原文片段）、`source`（巨潮接口、查询参数、下载时间）。
 - **证据**：摘录为 `unit="文本"` 的来源证据，`source.url` 为 PDF 链接，`source.page` 为页码；抽查不一致时状态为 `conflict`、值置空。定期报告披露日为来源证据，“早于法定截止日（天）”为计算证据；业绩预告上下限按 万元 ÷ 1e4 换算为亿元，与扶摇累计利润表归母净利润计算“区间位置”。
 - **分类**：`src/diagnosis/events.py` 标题规则；附件与例行文件计入“其他公告”。
-- **行情图**：`/api/chat` 在涉及行情或事件维度时返回 `price_chart`（前复权收盘价点列与九类事项标记），只做时间并列。
+- **行情图**：`/api/chat` 在涉及行情或事件维度时返回 `price_chart`：天齐与三家同行前复权收盘价按“当日 ÷ 首个交易日 × 100”指数化（Decimal，两位小数）并附原值；天齐最大回撤区间与行情维度 `max_drawdown` 证据同一算法；九类事项公告日期作标记。只做时间并列，不画趋势线、不外推。

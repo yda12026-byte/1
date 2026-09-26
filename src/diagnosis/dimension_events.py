@@ -11,7 +11,7 @@ import re
 from datetime import date
 from decimal import Decimal
 
-from .dimensions import BASE_CANNOT_SAY, D, Run, _statement_evidence, q
+from .dimensions import BASE_CANNOT_SAY, D, Run, _statement_evidence, max_drawdown, q
 from .events import CATEGORIES
 from .models import CannotSay, DiagnosisRun, Evidence
 from .product_snapshot import SUBJECT
@@ -177,14 +177,33 @@ def events_run(snapshot: dict, question: str, route: dict, run_id: str) -> Diagn
     return run.finish(question, route)
 
 
-def price_chart(snapshot: dict) -> dict | None:
-    """Close prices with official event dates side by side; no attribution is made."""
+def price_chart(snapshot: dict) -> dict:
+    """Subject and peers indexed to 100 on the first trading day, max-drawdown span, official event dates.
+
+    Indices use Decimal (close ÷ first close × 100, two decimals); the drawdown span comes from the same
+    routine as the market dimension's evidence. Juxtaposition only: no trend lines, no attribution.
+    """
     events = snapshot.get("events")
-    daily = snapshot["daily"][SUBJECT]
+    order = [SUBJECT, *snapshot["peer_group"]]
+    rows = {code: snapshot["daily"][code]["rows"] for code in order}
+    dates = [row["date"] for row in rows[SUBJECT]]
+    series = []
+    for code in order:
+        closes = [D(row["close"]) for row in rows[code]]
+        if [row["date"] for row in rows[code]] != dates:
+            raise ValueError(f"daily series not aligned for chart: {code}")
+        series.append({"code": code, "label": snapshot["names"][code], "role": "subject" if code == SUBJECT else "peer",
+                       "values": [float(q(close / closes[0] * 100)) for close in closes],
+                       "closes": [float(close) for close in closes],
+                       "evidence_id": f"daily_series:{SUBJECT}" if code == SUBJECT else f"return:{code}:{dates[0]}:{dates[-1]}"})
+    worst, (peak_i, trough_i) = max_drawdown([D(row["close"]) for row in rows[SUBJECT]])
     markers = [{"date": item["date"], "category": events["categories"][item["category"]], "title": item["title"],
                 "url": item["url"]}
                for item in (events or {}).get("announcements", []) if item["category"] != "other"]
-    return {"points": [[row["date"], row["close"]] for row in daily["rows"]], "adjust": "forward", "unit": "元",
-            "markers": markers,
-            "source": f"{daily['source']['provider']} {daily['source']['raw_file']}；事件：巨潮资讯公告清单",
-            "note": "事件日期与股价只做时间并列，不表示因果关系"}
+    daily = snapshot["daily"][SUBJECT]
+    return {"kind": "indexed_price", "dates": dates, "base_date": dates[0], "series": series,
+            "drawdown": {"start": dates[peak_i], "end": dates[trough_i], "pct": float(q(worst * 100)),
+                         "evidence_id": f"max_drawdown:{SUBJECT}"},
+            "markers": markers, "adjust": "forward",
+            "source": f"{daily['source']['provider']} 前复权日线（四家同源）；事件：巨潮资讯公告清单",
+            "note": "指数 = 当日前复权收盘价 ÷ 首个交易日收盘价 × 100；事件日期与股价只做时间并列，不表示因果关系；历史走势不预示未来"}

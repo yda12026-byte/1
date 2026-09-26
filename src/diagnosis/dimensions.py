@@ -416,6 +416,18 @@ def _return(run: Run, code: str, start: dict, end: dict, label: str, field_id: s
                         time={"start": start["date"], "end": end["date"]}, scope={"subject": code, "adjust": "forward"})
 
 
+def max_drawdown(closes: list[Decimal]) -> tuple[Decimal, tuple[int, int]]:
+    """Largest fall from a running peak: (drawdown ratio ≤ 0, (peak index, trough index)). Shared with the chart."""
+    peak, peak_i, worst, worst_pair = closes[0], 0, Decimal(0), (0, 0)
+    for i, close in enumerate(closes):
+        if close > peak:
+            peak, peak_i = close, i
+        drawdown = close / peak - 1
+        if drawdown < worst:
+            worst, worst_pair = drawdown, (peak_i, i)
+    return worst, worst_pair
+
+
 def market_run(snapshot: dict, question: str, route: dict, run_id: str) -> DiagnosisRun:
     run = Run(snapshot, "market", run_id)
     rows = snapshot["daily"][SUBJECT]["rows"]
@@ -443,13 +455,7 @@ def market_run(snapshot: dict, question: str, route: dict, run_id: str) -> Diagn
                  highlights=[r_all, r60, r20, volume_ratio])
 
     closes = [D(row["close"]) for row in rows]
-    peak, peak_i, worst, worst_pair = closes[0], 0, Decimal(0), (0, 0)
-    for i, close in enumerate(closes):
-        if close > peak:
-            peak, peak_i = close, i
-        drawdown = close / peak - 1
-        if drawdown < worst:
-            worst, worst_pair = drawdown, (peak_i, i)
+    worst, worst_pair = max_drawdown(closes)
     high, low = _close(run, SUBJECT, rows[worst_pair[0]], "f045"), _close(run, SUBJECT, rows[worst_pair[1]], "f045")
     mdd = run.computed(f"max_drawdown:{SUBJECT}", "max_drawdown", "f045", "区间最大回撤（前复权）", q(worst * 100), "%",
                        formula_id="max_drawdown_forward_close", formula="逐日计算收盘价相对此前最高收盘价的跌幅，取最小值；输入为回撤起点高点与终点低点",
