@@ -38,7 +38,7 @@
 - `config/priority_profile_002466.json` 为天齐锂业设置独立的字段展示优先级：默认突出锂价周期、矿/锂化工量价成本、利润现金、存货及债务/项目风险，研发费用等弱化但保留钻取。`route_question` 的 `field_ids` 是全部候选，`display_plan.default_field_ids` 才是有限首屏；优先级不等于证据有效性或投资评分。用户点名弱化字段时优先展示；重要但未核准的字段显示缺口。见决策 0010。
 - 产品数据截止日是 2026-08-31，统一观察区间是 2025-08-31 至 2026-08-31；同比基期可早于窗口。2026 年 8 月的实验数据保存在 Git 忽略的 `data/raw/experiment-2026-08/`，由 `py scripts/experiment_august_data.py` 取得；它不是产品发布快照。见[决策 0007](docs/decisions/0007-observation-window.md)及[实验审计](docs/experiments/2026-08-one-month-data-audit.md)。
 - 一年原始数据的核准口径已由用户确定并记入[决策 0013](docs/decisions/0013-annual-data-approval-decisions.md)：扶摇按累计值标注、负基期同比用绝对基期并注明、估值/行业/价格按实际交易日过滤、EDB 锂价作行业环境证据、正式同行组为赣锋/中矿资源/永兴材料、iFinD 估值 TTM/MRQ 先确认再展示、`f059` 显示“该请求范围无匹配事件”、`f048` 保留为历史数据缺口；公告/新闻呈现方式暂缓。原始文件仍非产品证据，完整快照尚未生成。
-- iFinD 估值 TTM/MRQ 口径已核实并记入[决策 0014](docs/decisions/0014-ifind-valuation-definitions.md)：分子为总市值；`PE(TTM)` 用归母净利润 TTM（滚动 4 季、基准日=报表公告日期），`PE(MRQ)` 用最新一期归母净利润×年化系数（半年报 ×2），`PB(MRQ)` 用归母净资产，`PS/PCF(TTM)` 用收入/经营现金流 TTM；亏损期返回负 PE，产品须标不适用。分子绝对水平约 5% 未解释，历史分位只在 iFinD 自身序列内计算。
+- iFinD 估值 TTM/MRQ 口径已核实并记入[决策 0014](docs/decisions/0014-ifind-valuation-definitions.md)：分子为市值（基准最接近总市值）；`PE(TTM)` 用归母净利润 TTM（滚动 4 季、基准日=报表公告日期），`PE(MRQ)` 用最新一期归母净利润×年化系数（一季报 ×4／半年报 ×2／三季报 ×4/3／年报 ×1，均已验证），`PB(MRQ)` 用归母净资产（iFinD 直接提供），`PS/PCF(TTM)` 用收入/经营现金流 TTM；亏损期返回负 PE，产品须标不适用。PE/PB 市值的绝对基准约 5% 未解释，历史分位只在 iFinD 自身序列内计算，不与其它来源混算。
 - 本机已安装 iFinD Skill：`C:\Users\qyw\.codex\skills\ifind-finance-data\SKILL.md`；另配置了 iFinD MCP 服务。换会话时先确认这些能力仍可用，再按 Skill 的服务文档、并发与查询要求调用。扶摇/iFinD 的实时权限、返回结构和数值以本次请求为准。
 - 不在公开仓库保存原始受限行情、财报批量响应、授权头或用户隐私；可公开的构造测试样本放 `data/fixtures/`。
 
