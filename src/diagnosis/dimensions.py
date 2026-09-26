@@ -333,13 +333,19 @@ def valuation_run(snapshot: dict, question: str, route: dict, run_id: str) -> Di
             source={"provider": "iFinD", "endpoint": "get_stock_performance", "field": label,
                     "query_ref": "ifind_valuation_YYYY_MM.json（13 个月度请求）"})
         current = D(series["points"][-1][1][key])
-        pct = _percentile(values, current) if current > 0 else None
+        losses = sum(1 for value in values if value <= 0)
+        # A loss-period multiple is not applicable (decision 0014); ranking it as "low" would be wrong, so a series
+        # that contains any non-positive value gets no percentile at all.
+        pct = _percentile(values, current) if current > 0 and not losses else None
         hist[key] = run.computed(
             f"{key}_percentile:{cut['date']}", f"{key}_percentile", "f039", f"{label}近一年分位", pct, "%",
             formula_id="empirical_percentile_rank", formula="序列中不高于截止日数值的交易日占比 × 100（只在 iFinD 自身序列内计算）",
             inputs=[series_item, items["pb_mrq" if key == "pb" else "pe_ttm"]], time=t,
             summary={"min": str(min(values)), "max": str(max(values)), "median": str(q(D(statistics.median(values)))),
-                     "n": len(values)}, reason="截止日倍数不适用，分位不计算")
+                     "n": len(values)},
+            status="not_applicable" if pct is None else None,
+            reason=None if pct is not None else f"序列含 {losses} 个亏损期负倍数交易日，分位不适用（决策 0014）" if losses
+            else "截止日倍数不适用，分位不计算")
     pb_pct = hist["pb"]
     if pb_pct.value is not None:
         band = _band(D(pb_pct.value))
@@ -616,8 +622,8 @@ def valuation_chart(snapshot: dict) -> dict:
         lower = max((v for v, r in ranks if r <= Decimal("33.3")), default=None)
         upper = min((v for v, r in ranks if r >= Decimal("66.7")), default=None)
         current = values[-1]
-        pct = _percentile(values, current) if current > 0 else None
         losses = sum(1 for v in values if v <= 0)
+        pct = _percentile(values, current) if current > 0 and not losses else None  # same rule as the evidence
         if losses:  # a negative multiple is "not applicable", not "cheap": no bands on a series that mixes both
             lower = upper = None
         panels.append({"key": key, "label": label, "values": [float(v) for v in values], "non_positive_days": losses,

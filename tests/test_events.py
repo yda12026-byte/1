@@ -137,11 +137,16 @@ class ValuationChartTests(unittest.TestCase):
             self.assertIn(panel["evidence_id"], evidence)
             rank = evidence[panel["percentile_evidence_id"]]
             self.assertEqual(panel["percentile"], float(rank.value))
+            self.assertNotIn("reason", rank.quality)  # a valid percentile carries no "not applicable" reason
             below = sum(v <= panel["lower"] for v in panel["values"]) / len(panel["values"]) * 100
             self.assertLessEqual(round(below, 1), 33.3)
         payload["valuation_series"]["points"][0][1]["pe_ttm"] = -20.0
         pe = valuation_chart(payload)["panels"][1]
-        self.assertEqual((pe["non_positive_days"], pe["lower"], pe["upper"]), (1, None, None))
+        self.assertEqual((pe["non_positive_days"], pe["lower"], pe["upper"], pe["percentile"]), (1, None, None, None))
+        rank = next(e for e in run_dimension("valuation", payload, "估值", {"intent": "valuation"}).evidence
+                    if e.id == pe["percentile_evidence_id"])
+        self.assertEqual((rank.quality["status"], rank.value), ("not_applicable", None))
+        self.assertIn("亏损期负倍数", rank.quality["reason"])
         # The TTM switch marker follows the 半年度报告 disclosure date in the events block, when it is a trading day.
         self.assertIsNone(chart["switch_date"])  # synthetic calendar ends before 2026-08-28
         payload["events"]["announcements"][6]["date"] = chart["dates"][-3]
