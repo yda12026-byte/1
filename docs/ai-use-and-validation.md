@@ -28,6 +28,4 @@
 | 2026-09-26 | opencode：按 Claude Code 给出的任务说明补数据；Claude Code：复核并接入 | 申万有色 5 月总市值加权补查、官方半年报 54 项摘录与 iFinD 交叉核对；经营质量与风险两维、净现金、决策 0018 | 独立复核摘录：分产品收入合计与扶摇总营收比约九成九以上、毛利率与收入成本自洽、归母净利润一致、四项在所注页码逐字找到。接入时发现“经营现金流”误选经营质量维度并修正；缺失摘录的证据来源字段为空被运行校验拒绝，补为摘录文件名 | `data/raw/…/official_extract_h1.json`（Git 忽略）、`src/diagnosis/dimensions_extra.py`、`docs/decisions/0018-operating-quality-and-risk.md` |
 | 2026-09-26 | Claude Code：按用户要求调整超范围问题体验与路由 | 分类说明加推荐问题、锂价路由、窄问题口径注明；决策 0019 | 用真实问法实测路由后发现三处问题（锂价走势误选行情、拒答文案过时且不分原因、窄问题与维度诊断报告期不同）并报告用户，按用户选择修改；测试保证推荐问题都可回答 | `src/diagnosis/routing.py`、`webapp.py`、`web/static/app.js`、`tests/` |
 
-| 2026-09-26 | Codex：接手 CloudBase 部署故障，通过浏览器读取控制台并验证公网状态 | 取得 `005`/`008` 挂载失败事件、实际 COS 对象路径与匿名访问结果；更新部署交接和测试状态 | 对照 Docker 构建成功日志与 `/mount.sh` 的 cosfs URL 格式错误，确认故障早于应用读取；无结尾斜杠试验仍失败。纠正旧交接中 `snapshots/002466/` 与实际 `snapshots/` 不符，以及旧线上版本编号。未读取或输出密钥、对象内容；未将路径 B 当作已批准 | `docs/deployment-cloudbase.md`、`docs/test-plan.md`、`docs/worklog/2026-09-26.md` |
-
 关键数字和结论必须回到原始字段或原文；后续在此记录发现并纠正的错误或不合理结果。
