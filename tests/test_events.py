@@ -13,6 +13,7 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "tests"))
 
 from diagnosis.dimension_events import events_run, price_chart  # noqa: E402
+from diagnosis.dimensions import lithium_chart, run_dimension  # noqa: E402
 from diagnosis.events import classify, periodic_deadline  # noqa: E402
 from diagnosis.validator import PROHIBITED_PATTERNS  # noqa: E402
 from product_fixture import product_payload  # noqa: E402
@@ -108,6 +109,20 @@ class EventsRunTests(unittest.TestCase):
         self.assertEqual({m["category"] for m in chart["markers"]}, {"定期报告", "项目或扩产", "利润分配", "诉讼仲裁", "业绩预告", "资本运作"})
         self.assertIn("不表示因果关系", chart["note"])
         self.assertEqual(price_chart(product_payload())["markers"], [])
+
+
+class LithiumChartTests(unittest.TestCase):
+    def test_four_prices_are_indexed_to_their_first_day_and_linked_to_series_evidence(self):
+        payload = product_payload()
+        chart = lithium_chart(payload)
+        self.assertEqual([s["key"] for s in chart["series"]], ["spodumene", "carbonate", "hydroxide", "futures"])
+        self.assertEqual({s["values"][0] for s in chart["series"]}, {100.0})
+        self.assertEqual([s["values"][-1] for s in chart["series"]], [300.0, 200.0, 150.0, 120.0])
+        self.assertEqual(len(chart["dates"]), 242)
+        self.assertIn("不等于公司实现售价", chart["note"])
+        industry = run_dimension("industry", {**payload, "snapshot_id": "synthetic"}, "锂价如何", {"intent": "industry"})
+        ids = {e.id for e in industry.evidence}
+        self.assertTrue({s["evidence_id"] for s in chart["series"]} <= ids)
 
 
 if __name__ == "__main__":

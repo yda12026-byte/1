@@ -522,10 +522,16 @@ def _position_word(own: Decimal, others: list[Decimal]) -> str:
 
 def industry_run(snapshot: dict, question: str, route: dict, run_id: str) -> DiagnosisRun:
     run = Run(snapshot, "industry", run_id)
-    changes = []
+    changes, series_items = [], []
     for key, series in snapshot["lithium"].items():
         field_id = PRICE_FIELDS[key]
         points = series["points"]
+        series_items.append(run.source(
+            f"lithium_series:{key}", f"lithium_series_{key}", field_id, f"{series['label']}逐日序列（{len(points)} 个交易日）",
+            len(points), "个交易日", time={"start": points[0][0], "end": points[-1][0]},
+            scope={"filter": f"按交易日历过滤，剔除 {series['dropped_non_trading_rows']} 条非交易日行"},
+            source={"provider": "iFinD", "endpoint": "EDB", "field": series["label"],
+                    "query_ref": f"ifind_{'lithium_' if key in ('carbonate', 'hydroxide', 'futures') else ''}{key}_YYYY_MM.json；{series['source']['query']}"}))
         ends = []
         for day, value in (points[0], points[-1]):
             ends.append(run.source(f"lithium_{key}:{day}", f"lithium_{key}", field_id, f"{series['label']}（{day}）",
@@ -549,7 +555,7 @@ def industry_run(snapshot: dict, question: str, route: dict, run_id: str) -> Dia
                 "观察区间内锂盐、锂精矿现货与期货价格均下跌，行业价格环境较期初走弱。")
     else:
         spec = ("inference", "mixed", "观察区间内各类锂价方向不一致", "观察区间内各类锂价方向不一致。")
-    run.conclude("lithium_prices", "f050", *spec, supports=changes,
+    run.conclude("lithium_prices", "f050", *spec, supports=changes, context=series_items,
                  limitations=["锂价是行业环境证据，不等于公司实现售价，也不是交易信号（决策 0013 第 4 项）",
                               "公司利润对锂价的敏感性尚未核准"], highlights=changes)
 
@@ -590,6 +596,26 @@ def industry_run(snapshot: dict, question: str, route: dict, run_id: str) -> Dia
                  f"天齐锂业观察区间股价涨跌幅在四家中{word}（前复权，同区间）。", supports=rets,
                  limitations=["同区间、同复权口径比较；历史表现不预示未来"], highlights=rets, table=returns_table)
     return run.finish(question, route)
+
+
+LITHIUM_CHART_ORDER = ("spodumene", "carbonate", "hydroxide", "futures")  # raw material first: drawn darkest
+
+
+def lithium_chart(snapshot: dict) -> dict:
+    """Four lithium prices indexed to 100 on their first trading day (Decimal, two decimals), raw values kept."""
+    dates = [row["date"] for row in snapshot["daily"][SUBJECT]["rows"]]
+    series = []
+    for key in LITHIUM_CHART_ORDER:
+        block = snapshot["lithium"][key]
+        by_day = dict(block["points"])
+        first = D(block["points"][0][1])
+        series.append({"key": key, "label": block["label"], "unit": block["unit"], "evidence_id": f"lithium_series:{key}",
+                       "values": [float(q(D(by_day[day]) / first * 100)) if day in by_day else None for day in dates],
+                       "raw": [by_day.get(day) for day in dates], "base_date": block["points"][0][0],
+                       "dropped_non_trading_rows": block["dropped_non_trading_rows"]})
+    return {"kind": "indexed_lithium", "dates": dates, "series": series,
+            "source": "iFinD EDB（按交易日历过滤）",
+            "note": "指数 = 当日价格 ÷ 该序列首个交易日价格 × 100；现货与期货、不同品级不可直接比较绝对价格；锂价是行业环境，不等于公司实现售价；历史走势不预示未来"}
 
 
 RUNNERS = {"financial_trend": financial_run, "valuation": valuation_run, "market": market_run, "industry": industry_run}

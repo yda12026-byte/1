@@ -361,6 +361,59 @@ function renderPriceChart(chart) {
   addText(figure, 'div', 'chart-note', `${chart.note}。▲ 共 ${chart.markers.length} 份公告（同日合并），悬停看标题，点击打开原文。来源：${chart.source}。`);
   return figure;
 }
+// 四类锂价期初 = 100 的走势：铜色深浅加线型区分，锂精矿最深；线尾直接标名称。
+function renderLithiumChart(chart) {
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const W = 720, H = 240, L = 40, R = 118, T = 14, B = 34;
+  const dates = chart.dates, n = dates.length;
+  const all = chart.series.flatMap(s => s.values.filter(v => v !== null));
+  const lo = Math.min(...all), hi = Math.max(...all), pad = (hi - lo) * 0.06 || 1;
+  const y0 = lo - pad, y1 = hi + pad;
+  const x = i => L + (W - L - R) * i / (n - 1);
+  const y = v => T + (H - T - B) * (1 - (v - y0) / (y1 - y0));
+  const node = (tag, attrs, parent) => { const e = document.createElementNS(svgNS, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); if (parent) parent.append(e); return e; };
+  const styles = { spodumene: 'li-1', carbonate: 'li-2', hydroxide: 'li-3', futures: 'li-4' };
+  const short = { spodumene: '锂精矿', carbonate: '碳酸锂现货', hydroxide: '氢氧化锂现货', futures: '碳酸锂期货' };
+
+  const figure = el('figure', 'price-chart');
+  addText(figure, 'figcaption', 'chart-title', `锂价走势（期初 = 100，${dates[0]} 至 ${dates[n - 1]}）`);
+  const holder = el('div', 'chart-holder'); figure.append(holder);
+  const lastValue = s => [...s.values].reverse().find(v => v !== null);
+  const svg = node('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img',
+    'aria-label': `期末指数：${chart.series.map(s => `${short[s.key]} ${lastValue(s).toFixed(2)}`).join('，')}` }, holder);
+  const step = (hi - lo) > 150 ? 50 : 25;
+  for (let v = Math.ceil(y0 / step) * step; v <= y1; v += step) {
+    node('line', { x1: L, x2: W - R, y1: y(v), y2: y(v), class: v === 100 ? 'grid base' : 'grid' }, svg);
+    node('text', { x: L - 6, y: y(v) + 4, class: 'axis', 'text-anchor': 'end' }, svg).textContent = v;
+  }
+  for (const [i, anchor] of [[0, 'start'], [n - 1, 'end']]) node('text', { x: x(i), y: H - B + 16, class: 'axis', 'text-anchor': anchor }, svg).textContent = dates[i];
+  for (const s of [...chart.series].reverse()) {  // darkest (锂精矿) drawn last, on top
+    let d = '', pen = false;
+    s.values.forEach((v, i) => { if (v === null) { pen = false; return; } d += `${pen ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`; pen = true; });
+    node('path', { d, class: `li-line ${styles[s.key]}` }, svg);
+  }
+  const ends = chart.series.map(s => ({ s, y: y(lastValue(s)) })).sort((a, b) => a.y - b.y);
+  for (let i = 1; i < ends.length; i++) ends[i].y = Math.max(ends[i].y, ends[i - 1].y + 13);
+  for (const e of ends) node('text', { x: W - R + 6, y: e.y + 4, class: 'end-label' }, svg).textContent = `${short[e.s.key]} ${lastValue(e.s).toFixed(0)}`;
+  const cross = node('line', { y1: T, y2: H - B, class: 'crosshair', visibility: 'hidden' }, svg);
+  const tip = addText(holder, 'div', 'chart-tip'); tip.hidden = true;
+  svg.addEventListener('mousemove', event => {
+    const box = svg.getBoundingClientRect(), px = (event.clientX - box.left) * W / box.width;
+    if (px < L || px > W - R) { cross.setAttribute('visibility', 'hidden'); tip.hidden = true; return; }
+    const i = Math.round((px - L) / (W - L - R) * (n - 1));
+    cross.setAttribute('x1', x(i)); cross.setAttribute('x2', x(i)); cross.setAttribute('visibility', 'visible');
+    tip.textContent = [dates[i], ...chart.series.map(s => s.values[i] === null ? `${short[s.key]}　无数据`
+      : `${short[s.key]}　${s.values[i].toFixed(2)}（${Number(s.raw[i]).toLocaleString('zh-CN')} ${s.unit}）`)].join('\n');
+    tip.hidden = false; tip.style.left = `${Math.min(Math.max(x(i) / W * 100, 22), 66)}%`;
+  });
+  svg.addEventListener('mouseleave', () => { cross.setAttribute('visibility', 'hidden'); tip.hidden = true; });
+  const legend = el('div', 'chart-legend');
+  for (const s of chart.series) { const k = addText(legend, 'span', `key li ${styles[s.key]}`, short[s.key]); k.title = s.label; }
+  figure.append(legend);
+  const dropped = chart.series.filter(s => s.dropped_non_trading_rows).map(s => `${short[s.key]} ${s.dropped_non_trading_rows} 行`).join('、');
+  addText(figure, 'div', 'chart-note', `${chart.note}。基期均为 ${chart.series[0].base_date}；已剔除非交易日数据：${dropped || '无'}。来源：${chart.source}。`);
+  return figure;
+}
 function renderProgress(question) {
   const card = el('div', 'progress-card');
   const head = el('div', 'progress-head');
@@ -407,6 +460,7 @@ function renderRuns(payload) {
     // One price chart with event dates: under 行情 when present, otherwise under 重要事件.
     const dim = run.route.dimension, dims = runs.map(r => r.route.dimension);
     if (payload.price_chart && (dim === 'market' || (dim === 'events' && !dims.includes('market')))) section.append(renderPriceChart(payload.price_chart));
+    if (payload.lithium_chart && dim === 'industry') section.append(renderLithiumChart(payload.lithium_chart));
     for (const conclusion of run.conclusions) section.append(renderConclusion(conclusion, byId, run.id, payload.snapshot));
     if (dim === 'events' && payload.clues) { section.append(renderClues(payload.clues)); payload = { ...payload, clues: null }; }
     wrap.append(section);

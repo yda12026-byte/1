@@ -15,6 +15,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from diagnosis.catalog import DIMENSION_EXECUTABLE, DIMENSIONS, EXECUTABLE_FIELDS, SUBJECT, WINDOW  # noqa: E402
 from diagnosis.deepseek import DeepSeek  # noqa: E402
 from diagnosis.dimension_events import price_chart  # noqa: E402
+from diagnosis.dimensions import lithium_chart  # noqa: E402
 from diagnosis.net import load_env  # noqa: E402
 from diagnosis.pipeline import diagnose_dimensions, diagnose_profit_cash  # noqa: E402
 from diagnosis.cos_fetch import SNAPSHOT_FILES, CosSnapshotFetcher  # noqa: E402
@@ -222,6 +223,7 @@ def create_app(*, snapshot_path: Path | None = None, product_snapshot_path: Path
                         "gaps": _gap_fields(route, tuple(route["runnable_dimensions"])) if route["execution_status"] == "partial" else [],
                         "clues": _clues(document) if "events" in route["dimensions"] else None,
                         "price_chart": price_chart(document) if {"market", "events"} & set(route["dimensions"]) else None,
+                        "lithium_chart": lithium_chart(document) if "industry" in route["dimensions"] else None,
                         "route": {"intent": route["intent"], "dimensions": route["dimensions"],
                                   "execution_status": route["execution_status"]},
                         "context": None, "resolved_question": resolved if resolved != question else None})

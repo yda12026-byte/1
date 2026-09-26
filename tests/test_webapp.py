@@ -262,6 +262,9 @@ class WebAppTests(unittest.TestCase):
         self.assertEqual(overview["gaps"], [])
         _, valuation = self.ask(client, "天齐锂业估值处于什么位置？")
         self.assertIsNone(valuation["price_chart"])
+        self.assertIsNone(valuation["lithium_chart"])
+        _, industry = self.ask(client, "天齐锂业的锂价环境和行业位置如何？")
+        self.assertEqual(len(industry["lithium_chart"]["series"]), 4)
 
     def test_dimension_question_without_product_snapshot_is_unavailable_but_narrow_questions_work(self):
         client = self.client()
