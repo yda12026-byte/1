@@ -49,7 +49,7 @@ class DiagnosisTests(unittest.TestCase):
                           for item in (run.evidence[1], run.evidence[0])])
         self.assertEqual(ratio.calculation["priority_policy"], "output_field_profile_no_numeric_weight")
         self.assertEqual(ratio.value, "-0.20")
-        self.assertEqual(run.to_dict()["evidence"][2]["priority"]["profile_version"], "002466-priority-v1")
+        self.assertEqual(run.to_dict()["evidence"][2]["priority"]["profile_version"], "002466-priority-v2")
 
     def test_priority_tampering_or_broken_lineage_is_rejected(self):
         run = self.build()

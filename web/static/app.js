@@ -32,6 +32,11 @@ function el(tag, className, value) {
 }
 function addText(parent, tag, className, value) { const node = el(tag, className, value); parent.append(node); return node; }
 function scrollDown() { messages.scrollTop = messages.scrollHeight; }
+// 桌面端消息区自带滚动，只滚它，避免整页跟着跳；窄屏整页滚动时才用 scrollIntoView。
+function revealMessage(node) {
+  if (messages.scrollHeight > messages.clientHeight + 1) messages.scrollTop += node.getBoundingClientRect().top - messages.getBoundingClientRect().top - 12;
+  else node.scrollIntoView({ block: 'start' });
+}
 function addMessage(content, kind = 'assistant') {
   const article = el('article', `message ${kind === 'user' ? 'user-message' : 'assistant-message'}`);
   if (kind === 'assistant') addText(article, 'div', 'message-label', '研究助手');
@@ -59,7 +64,19 @@ function scopeText(scope) {
 function jumpTo(runId, id) {
   const target = document.getElementById(domId(runId, id));
   const card = target?.closest('.answer.collapsed'); if (card) setCollapsed(card, false);
-  if (target) { target.open = true; target.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+  if (target) {
+    target.open = true; target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    target.classList.remove('flash'); void target.offsetWidth; target.classList.add('flash');
+  }
+}
+// 计算的输入证据可能没有被任何结论直接引用、页面上还不存在；这时就地展开在计算框下方再定位。
+function openInput(runId, id, byId, box) {
+  if (!document.getElementById(domId(runId, id)) && byId[id]) {
+    let holder = box.querySelector(':scope > .input-evidence');
+    if (!holder) { holder = el('div', 'evidence-list input-evidence'); box.append(holder); }
+    holder.append(renderEvidence(byId[id], byId, runId));
+  }
+  jumpTo(runId, id);
 }
 function renderEvidence(item, byId, runId) {
   const status = item.quality.status;
@@ -87,7 +104,7 @@ function renderEvidence(item, byId, runId) {
     for (const id of calc.input_evidence_ids || []) {
       const input = byId[id];
       const button = addText(inputs, 'button', 'input-link', input ? `${evidenceName(input)}：${evidenceValue(input)}` : id);
-      button.type = 'button'; button.addEventListener('click', () => jumpTo(runId, id));
+      button.type = 'button'; button.addEventListener('click', () => openInput(runId, id, byId, box));
     }
     box.append(inputs); body.append(box);
   }
@@ -159,13 +176,29 @@ function renderConclusion(conclusion, byId, runId, snapshot) {
   addText(basis, 'span', `tag tier-${conclusion.priority.tier}`, labels[conclusion.priority.tier] || conclusion.priority.tier);
   addText(basis, 'span', '', `优先级依据：${conclusion.priority.reason}`);
   card.append(basis);
-  addText(card, 'div', 'answer-meta', `固定快照 · 下载于 ${beijing(snapshot.created_at)} · ${conclusion.validation === 'passed' ? '受限模型文案已校验' : '程序回退文案'}`);
-  if (conclusion.validation_failures?.length) addText(card, 'div', 'answer-note', `模型文案回退原因：${conclusion.validation_failures.join('、')}`);
   const list = el('div', 'evidence-list');
   for (const link of conclusion.evidence_links) { const item = byId[link.evidence_id]; if (item) list.append(renderEvidence(item, byId, runId)); }
   card.append(list);
-  if (conclusion.limitations?.length) addText(card, 'div', 'answer-note', `限制：${conclusion.limitations.join('；')}`);
+  const foot = el('div', 'answer-foot');
+  addText(foot, 'div', '', `限制：${withSnapshotTime(conclusion.limitations || [], snapshot.created_at).join('；')}。`);
+  const failures = conclusion.validation_failures?.length ? `（模型文案未通过校验：${conclusion.validation_failures.join('、')}）` : '';
+  addText(foot, 'div', '', conclusion.validation === 'passed' ? '文字说明：由受限模型生成，已校验只重述程序结论。' : `文字说明：程序生成${failures}。`);
+  card.append(foot);
   return makeCollapsible(card, header, conclusion.required_anchor);
+}
+// 把快照下载时间并入“仅代表固定快照”那条限制；没有这条时补上，保证每张卡都标明数据时点。
+function withSnapshotTime(limitations, createdAt) {
+  const when = `下载于 ${beijing(createdAt).replace('（北京时间）', ' 北京时间')}`;
+  let found = false;
+  const items = limitations.map(raw => {
+    const text = raw.replace(/[。；;]+$/, '');
+    const match = text.match(/^仅代表固定快照(?:（([^）]*)）)?(.*)$/);
+    if (!match) return text;
+    found = true;
+    return `仅代表固定快照（${match[1] ? `${match[1]}，` : ''}${when}）${match[2]}`;
+  });
+  if (!found) items.push(`仅代表固定快照（${when}），不代表实时状态`);
+  return items;
 }
 function setCollapsed(card, collapsed) {
   card.classList.toggle('collapsed', collapsed);
@@ -319,8 +352,19 @@ async function submitQuestion(question) {
     else if (payload.suggestions?.length) renderSuggestions(payload);
     else addMessage(payload.message || '当前无法完成诊断。');
   } catch (_) { pending.remove(); context = null; addMessage('服务连接失败，请稍后重试。'); }
-  finally { send.disabled = false; input.focus({ preventScroll: true }); asked.scrollIntoView({ block: 'start' }); }
+  finally { send.disabled = false; input.focus({ preventScroll: true }); revealMessage(asked); }
 }
+// 输入区可收矮：隐藏示例与提示，只留一行输入框；偏好只存本浏览器。
+const composerWrap = document.querySelector('.composer-wrap');
+const composerToggle = document.querySelector('#composer-toggle');
+function setComposerCollapsed(collapsed) {
+  composerWrap.classList.toggle('collapsed', collapsed);
+  composerToggle.setAttribute('aria-expanded', String(!collapsed));
+  composerToggle.textContent = collapsed ? '展开 ▴' : '收起 ▾';
+  try { localStorage.setItem('composerCollapsed', collapsed ? '1' : '0'); } catch (_) {}
+}
+composerToggle.addEventListener('click', () => setComposerCollapsed(!composerWrap.classList.contains('collapsed')));
+try { if (localStorage.getItem('composerCollapsed') === '1') setComposerCollapsed(true); } catch (_) {}
 form.addEventListener('submit', event => { event.preventDefault(); submitQuestion(input.value.trim()); });
 input.addEventListener('keydown', event => { if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) { event.preventDefault(); form.requestSubmit(); } });
 
