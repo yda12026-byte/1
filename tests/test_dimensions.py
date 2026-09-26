@@ -269,5 +269,18 @@ class DimensionTests(unittest.TestCase):
                 self.assertTrue(summary["text"].startswith("综合来看："), name)
 
 
+class PendingRiskTests(unittest.TestCase):
+    def test_unverified_risk_questions_are_explicit_unknowns_with_missing_evidence(self):
+        from product_fixture import product_payload as payload_for
+        run = run_dimension("risk", {**payload_for(), "snapshot_id": "synthetic"}, "主要风险", {"intent": "risk"})
+        pending = {c.claim_code: c for c in run.conclusions if c.type == "unknown"}
+        self.assertEqual(set(pending), {"lithium_sensitivity", "overseas_exposure"})
+        evidence = {e.id: e for e in run.evidence}
+        for conclusion in pending.values():
+            self.assertEqual(conclusion.assessment, "unknown")
+            item = evidence[conclusion.evidence_links[0]["evidence_id"]]
+            self.assertEqual((item.quality["status"], item.value), ("missing", None))
+            self.assertTrue(item.quality["reason"])
+
 if __name__ == "__main__":
     unittest.main()

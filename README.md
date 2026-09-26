@@ -6,7 +6,7 @@
 
 - 地址：<https://lithium-diagnosis-319862-8-1496111595.sh.run.tcloudbase.com>（腾讯云 CloudBase 云托管）
 - 首次打开会出现 CloudBase 测试域名的“风险提醒”页，等待倒计时后点击“确定访问”即可进入。
-- 状态：**已上线，公网验收 21/21 通过**（2026-09-26 17:05）。服务从本仓库 `main` 分支构建；启动时用只读密钥从私有 COS 下载固定快照（[决策 0020](docs/decisions/0020-snapshot-download-fallback.md)），此前的存储挂载方案因平台 cosfs 失败而弃用。验收结果见[测试说明](docs/test-plan.md)。
+- 状态：**已上线**，公网验收脚本 21 项（2026-09-26 18:20 前后最近一次全部通过，含事件维度；之后的图表与口径修正以[测试说明](docs/test-plan.md)的最新记录为准）。服务从本仓库 `main` 分支构建；启动时用只读密钥从私有 COS 下载固定快照（[决策 0020](docs/decisions/0020-snapshot-download-fallback.md)），此前的存储挂载方案因平台 cosfs 失败而弃用。验收结果见[测试说明](docs/test-plan.md)。
 
 ## 产品能做什么
 
@@ -25,17 +25,17 @@
 
 1. **总体解读**：2–4 句概括，先给最重要的判断，再点出不同维度之间的一致或分歧。
 2. **分维度结论卡片**：每张卡片标明评价（正面 / 负面 / 矛盾 / 中性 / 未知）、类型（事实 / 推断 / 未知）、公司专属优先级，并附关键数字。卡片可单独收起，也可“全部收起”。
-3. **同行对比表**：估值、同行财务、同行股价三处结论附四家公司并列的对比表，点击数值可定位证据。
+3. **对比表与图**：估值、同行财务、同行股价附四家公司并列的对比表，点击数值可定位证据；三张图——**估值历史位置**（PB/PE 逐日序列、三分位区间线与截止日分位）、**锂价走势**（四类锂价期初 = 100）、**股价与同行**（四家期初 = 100，阴影为最大回撤区间，▲ 为官方事件公告日，只做时间并列不做归因）。图不画趋势线、不外推，图下注明来源与“历史走势不预示未来”。
 4. **证据**：展开可看数值、时间、口径和异常原因。计算项列出公式与输入证据，点击可定位到来源证据。来源接口、查询定位、快照时间等放在“技术信息”中，再展开一层才显示。
 
 七个维度：
 
 - **经营质量**：业务结构与毛利率、投资收益贡献、锂精矿产量。
 - **财务趋势**：收入与利润同比、现金转化、净现金、存货与负债率。
-- **估值**：PE/PB 等倍数、自身历史分位、同行中位数。
+- **估值**：PE/PB 等倍数、自身历史分位（PE(TTM) 序列含亏损期负值时分位标为不适用）、同行中位数。
 - **行情特征**：区间涨跌、回撤与波动、相对行业表现。
 - **行业位置**：锂价环境、同行财务与股价比较。
-- **风险**：短期偿债、现金对有息债务的覆盖、减值、资本开支压力。
+- **风险**：短期偿债、现金对有息债务的覆盖、减值、资本开支压力；锂价敏感性与海外敞口以“未知 / 待验证问题”明确列出，附缺失原因。
 - **重要事件**：巨潮资讯官方公告按九类事项分类计数；定期报告是否在法定期限内披露；业绩预告区间与随后定期报告的对照；项目、诉讼、担保、回购、利润分配、资本运作、套期保值的原文摘录。行情图标出事件日期，只做时间并列、不做归因（[决策 0022](docs/decisions/0022-official-announcements-events.md)）。
 
 ## 设计要点（AI Native 与可验证）
@@ -67,7 +67,7 @@
   - 估值按 iFinD 口径原样引用，分子为总股本 × A 股价（[决策 0014](docs/decisions/0014-ifind-valuation-definitions.md)）；
   - 日频序列按 242 个交易日过滤。
 - **已知限制**：
-  - 锂价对公司利润的敏感性、海外资产/政策/汇率敞口尚无经核准的数据，显示为缺口；
+  - 锂价对公司利润的敏感性、海外资产/政策/汇率敞口尚无经核准的数据，在风险维度显示为“未知”结论并写明缺失原因；
   - 重要事件的摘录由程序抽取、按类抽查，完整情况以公告全文为准；股权质押、解禁与新闻尚未作为正式证据；
   - 锂精矿销量、均价和单位成本在半年报中未披露；
   - 历史个股异动原因接口无法回溯。
@@ -76,13 +76,13 @@
 ## 架构
 
 ```text
-一次性数据准备（扶摇 / iFinD / 官方 PDF 摘录）
+一次性数据准备（扶摇 / iFinD / 官方半年报摘录 / 巨潮公告清单与原文程序摘录 + 人工抽查）
   → scripts/build_product_snapshot.py：按交易日过滤、口径标注、交叉核对、内容摘要 → 固定产品快照（私有存储）
 提问：webapp.py（Flask / Gunicorn）
   → routing：固定意图与维度路由（问句含未覆盖年份等时只返回缺口）
   → dimensions*.py：确定性计算 → Evidence（来源 / 计算） → Conclusion（事实 / 推断 / 未知 + 禁区）
   → DeepSeek 受限改写与总体解读（并行）→ 校验 / 回退
-  → 前端（HTML/CSS/JS）：总体解读 → 分维度卡片 → 证据钻取
+  → 前端（HTML/CSS/JS）：总体解读 → 维度概览 → 分维度卡片与图表 → 证据钻取（公式、输入、原文页码）
 ```
 
 详见[架构说明](docs/ARCHITECTURE.md)与[数据契约](docs/data-contract.md)。
@@ -94,22 +94,38 @@
 ```powershell
 py -m pip install -r requirements.txt
 py webapp.py                                     # http://127.0.0.1:8080
-py -m unittest discover -s tests -p 'test_*.py'  # 60 项单元与接口测试（合成快照，不需要真实数据）
+py -m unittest discover -s tests -p 'test_*.py'  # 80 项单元与接口测试（合成快照，不需要真实数据）
 py scripts/smoke_public.py http://127.0.0.1:8080 # 21 项验收检查；不带参数时检查线上地址
 ```
 
 - **运行真实诊断**：需要本地快照 `data/cache/profit_cash_002466.json` 与 `data/cache/product_snapshot_002466.json`（Git 忽略）。
   - 两字段快照由 `py scripts/download_data.py` 生成；
   - 产品快照由 `py scripts/download_annual_raw.py --source all` 下载一年原始数据后，再用 `py scripts/build_product_snapshot.py` 生成。这两步需要扶摇和 iFinD 凭据。
+  - 重要事件另需 `py scripts/download_cninfo_events.py`（巨潮公开接口，无需凭据）与 `py scripts/extract_cninfo_events.py`（需 PyMuPDF），人工抽查结果用 `py scripts/record_event_spotcheck.py` 记录（决策 0022）。
   - 两份快照都已存在则不覆盖。
-- **环境变量**：名称见 [.env.example](.env.example)：`DEEPSEEK_API_KEY`、`DEEPSEEK_BASE_URL`、`DEEPSEEK_MODEL`，以及可选的 `DIAGNOSIS_SNAPSHOT_PATH`、`DIAGNOSIS_PRODUCT_SNAPSHOT_PATH`。不配置 DeepSeek 时，页面使用程序文案。
+- **环境变量**（名称见 [.env.example](.env.example)，值只放本地 `.env` 或平台环境变量）：
+  - 运行时：`DEEPSEEK_API_KEY`、`DEEPSEEK_BASE_URL`、`DEEPSEEK_MODEL`；不配置 DeepSeek 时页面使用程序文案。
+  - 快照位置（可选）：`DIAGNOSIS_SNAPSHOT_PATH`、`DIAGNOSIS_PRODUCT_SNAPSHOT_PATH`。
+  - 线上从私有云存储下载快照（决策 0020）：`DIAGNOSIS_COS_BUCKET`、`DIAGNOSIS_COS_REGION`、`DIAGNOSIS_COS_PREFIX`、`DIAGNOSIS_COS_SECRET_ID`、`DIAGNOSIS_COS_SECRET_KEY`、`DIAGNOSIS_SNAPSHOT_DIR`。
+  - 仅数据准备时需要：`FUYAO_API_KEY`、`FUYAO_BASE_URL`、`IFIND_MCP_AUTH_TOKEN`、`IFIND_MCP_URL`。
 - **部署**：仓库根目录的 `Dockerfile`（Gunicorn，端口 8080），步骤见 [CloudBase 部署清单](docs/deployment-cloudbase.md)。
+
+## 未做事项
+
+- **锂价对利润的敏感性（f070）**、**海外项目 / 政策 / 汇率敞口（f071）**：缺少可复核的数据或模型，页面以“未知”结论列出，不做估算。
+- **股权质押（f060）、限售股解禁（f061）**：iFinD 有返回值，但未核对口径，未作为正式证据。
+- **新闻（f062）**：只作第三方检索线索，不进入结论。
+- **历史个股异动原因（f048）**：接口只能查当日，无法回溯观察区间。
+- **分业务量价成本**：半年报未披露锂精矿销量、均价与单位成本，不做推算。
+- **事件摘录全文核对**：采用程序抽取加按类人工抽查（10 条样本全部一致），其余摘录未逐条人工核对。
+- **实时数据与多标的**：产品只基于截至 2026-08-31 的固定快照，只覆盖天齐锂业。
+- **演示视频**（可选）：未录制。
 
 ## 提交材料与文档导航
 
 - [AI 使用与人工验证记录](docs/ai-use-and-validation.md)：各阶段 AI 工具的用途、产出、人工核验及发现的错误
 - [测试说明](docs/test-plan.md)：测试场景、命令与执行结果
-- [决策记录](docs/decisions/)：标的、数据口径、同行组、LLM 分工、部署等 18 项关键选择及理由
+- [决策记录](docs/decisions/)：标的、数据口径、同行组、LLM 分工、部署、事件数据源等 22 项关键选择及理由
 - [问题路由对照表](docs/question-routing-map.md)与[72 条字段候选表](docs/field-candidates-002466-v2.md)：各类问题的字段来源、计算依赖与实现状态
 - [数据访问审计](docs/data-access-audit.md)、[一年原始数据审计](docs/experiments/2025-08-to-2026-08-full-download-audit.md)
 - [工作日志](docs/worklog/)、[TODO](docs/todo/TODO.md)、[接手指南 AGENTS.md](AGENTS.md)

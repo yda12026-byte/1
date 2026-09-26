@@ -152,4 +152,26 @@ def risk_run(snapshot: dict, question: str, route: dict, run_id: str) -> Diagnos
         spec = ("unknown", "unknown", "资本开支压力无法计算", "资本开支压力无法计算。")
     run.conclude("capex_pressure", "f072", *spec, supports=[ratio], context=[capex, ocf] + projects,
                  limitations=["半年累计口径；项目进度为报告原文，未包含后续投资计划金额"], highlights=[ratio, capex])
+
+    # Important questions without approved evidence stay visible as explicit unknowns, never as silent omissions.
+    for key, field_id, label, reason, anchor, text, limits in PENDING_RISKS:
+        gap = run.source(f"pending:{field_id}", key, field_id, label, None, None, time={"period_end": PERIOD},
+                         scope={"subject": SUBJECT}, source={"provider": "尚无经核准的数据", "endpoint": "72 条字段候选表",
+                                                             "field": label, "query_ref": f"docs/field-candidates-002466-v2.md · {field_id}"},
+                         status="missing", reason=reason)
+        run.conclude(key, field_id, "unknown", "unknown", anchor, text, supports=[gap], limitations=limits)
     return run.finish(question, route)
+
+
+PENDING_RISKS = (
+    ("lithium_sensitivity", "f070", "锂价变化对利润的敏感性",
+     "有锂价序列和分业务收入、毛利，但没有可验证的敏感性模型；不能用市价乘产量推算利润",
+     "锂价变动对公司利润的影响尚无经核准的测算",
+     "锂价变动对公司利润的影响尚无经核准的测算，属于待验证问题；需要公司分部量价成本披露或可复核的敏感性模型。",
+     ["锂价走势见行业维度，但价格上涨不等于公司利润同比例增加"]),
+    ("overseas_exposure", "f071", "海外资产、项目、政策及汇率敞口",
+     "公告与财报中有相关片段，敞口金额、地区分布和政策事件尚未逐项核对原文",
+     "海外项目、政策与汇率敞口尚未取得可核对的证据",
+     "海外项目、政策与汇率敞口尚未取得可核对的证据，属于待验证问题；需要财报附注中的境外资产与外币项目原文。",
+     ["套期保值公告只说明对冲安排，不等于敞口规模"]),
+)
