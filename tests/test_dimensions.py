@@ -160,7 +160,7 @@ class DimensionTests(unittest.TestCase):
         route = route_question("估值如何？")
         for mode, first, last in (("ok", "passed", "passed"), ("bad", "fallback", "fallback"), ("fail", "fallback", "fallback")):
             llm = FakeLLM(mode)
-            conclusions = diagnose_dimensions("估值如何？", route, lambda: payload, llm)[0].conclusions
+            conclusions = diagnose_dimensions("估值如何？", route, lambda: payload, llm)[0][0].conclusions
             self.assertEqual((conclusions[0].validation, conclusions[-1].validation), (first, last), mode)
             if mode == "bad":
                 self.assertIn("prohibited:NO_VALUATION_JUDGMENT", conclusions[0].validation_failures)
@@ -177,6 +177,39 @@ class DimensionTests(unittest.TestCase):
         revenue = route_question("2026年上半年营收同比增长多少？")
         self.assertEqual((revenue["execution_status"], revenue["runnable_dimensions"]), ("partial", ["financial_trend"]))
         self.assertEqual(route_question("主要风险有哪些？")["execution_status"], "planned")
+
+    def test_overall_summary_is_validated_and_falls_back_to_program_anchors(self):
+        payload = {**product_payload(), "snapshot_id": "synthetic"}
+        route = route_question("全面诊断一下")
+        runs, summary = diagnose_dimensions("全面诊断一下", route, lambda: payload)
+        self.assertEqual(summary["validation"], "fallback")
+        for run in runs:
+            known = [c for c in run.conclusions if c.type != "unknown"]
+            self.assertIn(known[0].required_anchor, summary["text"])
+        self.assertIn("经营质量", summary["text"])  # uncovered dimensions are named, not silently dropped
+        self.assertFalse(any(ch.isdigit() for ch in summary["text"]))
+
+        class SummaryLLM:
+            def __init__(self, text):
+                self.text = text
+
+            def translate_many(self, conclusions, evidence):
+                raise TimeoutError
+
+            def summarize(self, basis):
+                return self.text(basis)
+
+        anchors = lambda basis: "；".join(basis["must_include"]) + "。"
+        cases = {"passed": (anchors, []),
+                 "digits": (lambda b: anchors(b) + "市盈率约二十倍，分位为 30。", ["numbers_in_prose"]),
+                 "advice": (lambda b: anchors(b) + "估值被低估，可以买入。", ["prohibited:NO_TRADE_ADVICE", "prohibited:NO_VALUATION_JUDGMENT"]),
+                 "anchor": (lambda b: "整体表现不错。", ["missing_anchor"])}
+        for name, (text, failures) in cases.items():
+            _, summary = diagnose_dimensions("全面诊断一下", route, lambda: payload, SummaryLLM(text))
+            self.assertEqual(summary["validation"], "passed" if not failures else "fallback", name)
+            self.assertEqual(summary["validation_failures"], failures, name)
+            if failures:
+                self.assertTrue(summary["text"].startswith("综合来看："), name)
 
 
 if __name__ == "__main__":

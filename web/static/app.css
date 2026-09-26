@@ -27,3 +27,21 @@
 .tech-grid{grid-template-columns:78px 1fr;font-size:11px;color:var(--muted);padding-top:6px}.tech-grid dt{color:#8a9795}.tech-grid dd{color:#58686a;word-break:break-all}
 @media(max-width:560px){.evidence summary{flex-wrap:wrap}.evidence-name{flex-basis:100%}.run-section{padding-left:10px}}
 .evidence .tech>summary::after,.evidence[open] .tech>summary::after{content:none}
+/* 数据卡片不用红绿：方向与状态用中性色、符号和文字区分 */
+:root{--ok:#3e5f7f;--ok-bg:#e8eef5;--bad:#6b5a8c;--bad-bg:#efebf6;--warn:#9a6a1f;--warn-bg:#f8efe0;--muted:#6b7479;--muted-bg:#eff1f2;--info:#3e5f7f;--info-bg:#e8eef5;--dim-fin:#34507a;--dim-val:#5b4f9a;--dim-mkt:#2f6b8a;--dim-ind:#8a6a33}
+.answer{box-shadow:0 4px 14px #1a2a3a0a}.answer-text{color:#1f2b36}
+.tag.positive{background:#e8eef5;color:#34507a}.tag.positive::before{content:'↑ '}
+.tag.negative{background:#efebf6;color:#5b4f9a}.tag.negative::before{content:'↓ '}
+.tag.mixed{background:#f8efe0;color:#8a6a33}.tag.mixed::before{content:'⇅ '}
+.tag.neutral{background:#eef0f3;color:#4a5866}.tag.unknown{background:#f1f1f1;color:#707070}.tag.unknown::before{content:'? '}
+.tag.tier-driver{background:#26374d;color:#eef2f7}.tag.tier-support{background:#e3e8ef;color:#3a4d63}
+.figure{border-left-color:#8497ad;background:#fafbfc}.figure strong{color:#1f2b36}
+.evidence{border-left-color:#b5c1ce}.evidence-state.state-valid{background:#e8eef5;color:#3e5f7f}
+.kind-badge{background:#eef0f3;color:#4a5866}
+.calc-box{background:#f7f8fa;border-color:#e1e5ea}.calc-label{color:#4a5866}.input-list .input-link{border-color:#cfd7e0;color:#34507a}
+.evidence summary::after{color:#6b7c8e}.input-link{color:#34507a}
+.summary-lead{background:#fff;border:1px solid #dfe4ea;border-left:4px solid #26374d;border-radius:12px;padding:18px 22px}
+.summary-label{font-size:12px;font-weight:700;letter-spacing:.12em;color:#26374d;margin-bottom:8px}
+.summary-text{font-size:16px;line-height:1.9;margin:0 0 10px;color:#1f2b36;font-weight:500}
+.summary-meta{font-size:11px;color:#7a8591}
+.more-examples{flex-basis:100%}.more-examples>summary{cursor:pointer;font-size:11px;color:#607871;margin:2px 0 6px;list-style:none}.more-examples>summary::before{content:'▸ '}.more-examples[open]>summary::before{content:'▾ '}.more-examples>summary::-webkit-details-marker{display:none}.more-examples .examples{margin-bottom:0}

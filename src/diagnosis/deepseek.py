@@ -83,6 +83,21 @@ class DeepSeek:
             raise ValueError("LLM returned no items")
         return items
 
+    def summarize(self, basis: dict) -> str:
+        result = self._complete(
+            '你为一只锂业股票的多维诊断写开头的总体解读，二到四句中文，面向研究者。只能重述输入中各维度已由程序得出的结论锚点，'
+            '先用一句话给出最重要的判断（优先 priority 为 driver 的结论），再指出不同维度之间值得注意的一致或分歧（例如财务与同行指标领先而股价表现落后），但不得新增事实、原因、数字、预测或投资建议。'
+            '以研究员口吻直接陈述，不要提及“程序”“锚点”“输入”等字样；pending 或 not_covered 不存在时不要提及。'
+            '必须逐字包含 must_include 中的每一条锚点；pending 中的条目要说明尚待核实；not_covered 中的维度说明尚未纳入。'
+            '正文不得出现任何数字或百分号，也不得出现：实时、最新、今天、当下、低估、高估、便宜、偏贵、导致、造成、因为、买入、卖出、建议。'
+            '只输出 JSON 对象 {"text":"..."}。',
+            json.dumps(basis, ensure_ascii=False), timeout=30,
+        )
+        text = result.get("text")
+        if not isinstance(text, str):
+            raise ValueError("LLM returned no summary text")
+        return text
+
     def translate(self, conclusion: Conclusion, evidence: list[Evidence]) -> dict:
         summary = {
             "claim_code": conclusion.claim_code, "type": conclusion.type, "assessment": conclusion.assessment,

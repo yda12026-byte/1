@@ -161,11 +161,11 @@ def create_app(*, snapshot_path: Path | None = None, product_snapshot_path: Path
             return jsonify({"status": "snapshot_unavailable", "snapshot": state, "message": state["message"],
                             "context": None}), 503
         try:
-            runs = diagnose_dimensions(resolved, route, lambda: document, llm)
+            runs, summary = diagnose_dimensions(resolved, route, lambda: document, llm)
         except (ValueError, KeyError, TypeError, IndexError, ArithmeticError):
             return jsonify({"status": "snapshot_unavailable", "snapshot": state,
                             "message": "完整产品快照的计算校验失败；诊断暂不可用。", "context": None}), 503
-        return jsonify({"status": "ok", "runs": [run.to_dict() for run in runs], "snapshot": state,
+        return jsonify({"status": "ok", "summary": summary, "runs": [run.to_dict() for run in runs], "snapshot": state,
                         "gaps": _gap_fields(route, DIMENSION_EXECUTABLE) if route["execution_status"] == "partial" else [],
                         "clues": _clues(document) if "events" in route["dimensions"] else None,
                         "route": {"intent": route["intent"], "dimensions": route["dimensions"],

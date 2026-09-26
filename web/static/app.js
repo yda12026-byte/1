@@ -166,6 +166,13 @@ function renderRuns(payload) {
   const wrap = el('div', 'runs');
   const runs = payload.runs || [payload.run];
   if (payload.resolved_question) addText(wrap, 'div', 'answer-note', `按受限追问解析为：${payload.resolved_question}`);
+  if (payload.summary) {
+    const lead = el('div', 'summary-lead');
+    addText(lead, 'div', 'summary-label', '总体解读');
+    addText(lead, 'p', 'summary-text', payload.summary.text);
+    addText(lead, 'div', 'summary-meta', `${payload.summary.validation === 'passed' ? '受限模型解读，已校验只重述程序结论' : '程序汇总各维度结论'} · 固定快照，不构成投资建议 · 下方为分维度结论与证据`);
+    wrap.append(lead);
+  }
   for (const run of runs) {
     const byId = Object.fromEntries(run.evidence.map(item => [item.id, item]));
     const section = el('section', `run-section dim-${run.route.dimension || 'financial_trend'}`);
@@ -210,7 +217,14 @@ fetch('/api/bootstrap').then(response => response.json()).then(data => {
   const statusText = { implemented: '可诊断', limited: '四类问题', clues: '待核线索', planned: '待接入' };
   for (const dim of data.dimensions) { const row = el('div', 'dimension'); addText(row, 'span', '', dim.label); addText(row, 'span', `dim-status ${dim.status}`, statusText[dim.status] || dim.status); dimensions.append(row); }
   const examples = document.querySelector('#examples');
-  for (const question of [...(data.dimension_examples || []), ...data.examples]) { const button = addText(examples, 'button', 'example', question); button.type = 'button'; button.addEventListener('click', () => submitQuestion(question)); }
+  const addExample = (parent, question) => { const button = addText(parent, 'button', 'example', question); button.type = 'button'; button.addEventListener('click', () => submitQuestion(question)); };
+  const primary = data.dimension_examples?.length ? data.dimension_examples : data.examples;
+  for (const question of primary) addExample(examples, question);
+  if (primary !== data.examples) {
+    const more = el('details', 'more-examples'); addText(more, 'summary', '', '更多示例');
+    const box = el('div', 'examples'); for (const question of data.examples) addExample(box, question);
+    more.append(box); examples.append(more);
+  }
   const pill = document.querySelector('.live-pill');
   if (pill && product.status === 'fixed') pill.lastChild.textContent = ' 四维诊断可运行';
 }).catch(() => { const banner = document.querySelector('#snapshot-banner'); banner.classList.add('unavailable'); banner.textContent = '服务状态暂时无法读取。'; });

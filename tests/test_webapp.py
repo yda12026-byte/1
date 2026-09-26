@@ -218,6 +218,7 @@ class WebAppTests(unittest.TestCase):
         status, data = self.ask(client, "天齐锂业估值处于什么位置？")
         self.assertEqual((status, data["status"]), (200, "ok"))
         self.assertEqual([run["route"]["dimension"] for run in data["runs"]], ["valuation"])
+        self.assertIn(data["runs"][0]["conclusions"][0]["required_anchor"], data["summary"]["text"])
         self.assertEqual((data["gaps"], data["clues"]), ([], None))
         self.assertEqual(data["snapshot"]["created_at"], product_payload()["created_at"])
         _, overview = self.ask(client, "天齐锂业全面诊断一下")
