@@ -15,7 +15,7 @@ from urllib.request import ProxyHandler, Request, build_opener
 
 DEFAULT = "https://lithium-diagnosis-319862-8-1496111595.sh.run.tcloudbase.com"
 OPENER = build_opener(ProxyHandler({}))
-DIMENSIONS = ["operating_quality", "financial_trend", "valuation", "market", "industry", "risk"]
+DIMENSIONS = ["operating_quality", "financial_trend", "valuation", "market", "industry", "events", "risk"]
 
 
 def call(base: str, path: str, body: dict | None = None) -> tuple[int, dict | str, float]:
@@ -50,7 +50,7 @@ def main() -> int:
 
     status, boot, _ = call(base, "/api/bootstrap")
     statuses = {d["id"]: d["status"] for d in boot.get("dimensions", [])} if isinstance(boot, dict) else {}
-    check("bootstrap dimensions", [statuses.get(d) for d in DIMENSIONS] == ["implemented"] * 6 and statuses.get("events") == "clues",
+    check("bootstrap dimensions", [statuses.get(d) for d in DIMENSIONS] == ["implemented"] * len(DIMENSIONS),
           str(statuses))
     product = boot.get("product_snapshot", {}) if isinstance(boot, dict) else {}
     check("product snapshot time shown", bool(product.get("created_at")) and bool(product.get("id")), product.get("id", ""))
@@ -58,11 +58,13 @@ def main() -> int:
     status, data, took = call(base, "/api/chat", {"question": "全面诊断一下天齐锂业"})
     runs = data.get("runs", []) if isinstance(data, dict) else []
     conclusions = [c for run in runs for c in run["conclusions"]]
-    check("overview runs six dimensions", [run["route"]["dimension"] for run in runs] == DIMENSIONS,
+    check("overview runs seven dimensions", [run["route"]["dimension"] for run in runs] == DIMENSIONS,
           f"{len(conclusions)} conclusions, {took:.1f}s")
     check("overview summary present", isinstance(data, dict) and bool((data.get("summary") or {}).get("text")),
           (data.get("summary") or {}).get("validation", "") if isinstance(data, dict) else "")
-    check("overview clues listed", isinstance(data, dict) and bool((data.get("clues") or {}).get("notices")))
+    # Decision 0022: official announcements replace notice clues; news stays a clue, the price chart marks events.
+    check("overview news clues and event chart", isinstance(data, dict) and bool((data.get("clues") or {}).get("news"))
+          and not (data.get("clues") or {}).get("notices") and bool((data.get("price_chart") or {}).get("markers")))
     fallbacks = [c["claim_code"] for c in conclusions if c["validation"] != "passed"]
     check("llm narrations validated", not fallbacks, f"fallback: {fallbacks}" if fallbacks else "all passed")
     evidence = {e["id"]: e for run in runs for e in run["evidence"]}
@@ -85,7 +87,12 @@ def main() -> int:
     check("advice redirected with reason and suggestions", isinstance(data, dict) and data.get("reason") == "out_of_scope"
           and str(data.get("message", "")).startswith("您的提问涉及") and bool(data.get("suggestions")))
     status, data, _ = call(base, "/api/chat", {"question": "天齐锂业近期有哪些公告？"})
-    check("events show clues only", isinstance(data, dict) and data.get("status") == "not_implemented" and bool(data.get("clues")))
+    event_runs = data.get("runs", []) if isinstance(data, dict) else []
+    excerpts = [e for run in event_runs for e in run["evidence"] if e.get("unit") == "文本"]
+    check("events diagnosable with original links", isinstance(data, dict) and data.get("status") == "ok"
+          and [run["route"]["dimension"] for run in event_runs] == ["events"] and bool(excerpts)
+          and all(str((e.get("source") or {}).get("url", "")).startswith("https://static.cninfo.com.cn/") for e in excerpts),
+          f"{len(excerpts)} excerpts")
     status, data, _ = call(base, "/api/chat", {"question": "2024年净利润同比增长多少？"})
     check("uncovered year stays planned", isinstance(data, dict) and data.get("status") == "not_implemented")
     status, _, _ = call(base, "/api/chat", {"question": ""})
