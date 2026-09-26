@@ -598,6 +598,38 @@ def industry_run(snapshot: dict, question: str, route: dict, run_id: str) -> Dia
     return run.finish(question, route)
 
 
+def valuation_chart(snapshot: dict) -> dict:
+    """PB and PE(TTM) daily series with the cutoff percentile and the value boundaries of the three bands.
+
+    Boundaries follow the same empirical rank as the valuation evidence: the lower line is the largest value whose
+    rank is at most 33.3%, the upper line the smallest value whose rank is at least 66.7%.
+    """
+    series = snapshot["valuation_series"]
+    dates = [day for day, _ in series["points"]]
+    periodic = [item for item in (snapshot.get("events") or {}).get("announcements", [])
+                if (item.get("periodic") or {}).get("kind") == "半年度报告"]
+    switch = periodic[-1]["date"] if periodic else "2026-08-28"
+    panels = []
+    for key, label in (("pb", "市净率 PB"), ("pe_ttm", "市盈率 PE(TTM)")):
+        values = [D(point[key]) for _, point in series["points"]]
+        ranks = [(value, _percentile(values, value)) for value in sorted(set(values))]
+        lower = max((v for v, r in ranks if r <= Decimal("33.3")), default=None)
+        upper = min((v for v, r in ranks if r >= Decimal("66.7")), default=None)
+        current = values[-1]
+        pct = _percentile(values, current) if current > 0 else None
+        losses = sum(1 for v in values if v <= 0)
+        if losses:  # a negative multiple is "not applicable", not "cheap": no bands on a series that mixes both
+            lower = upper = None
+        panels.append({"key": key, "label": label, "values": [float(v) for v in values], "non_positive_days": losses,
+                       "lower": float(lower) if lower is not None else None, "upper": float(upper) if upper is not None else None,
+                       "current": float(current), "percentile": float(pct) if pct is not None else None,
+                       "band": _band(pct) if pct is not None else None,
+                       "evidence_id": f"valuation_series:{key}", "percentile_evidence_id": f"{key}_percentile:{snapshot['valuation_cutoff']['date']}"})
+    return {"kind": "valuation_history", "dates": dates, "panels": panels, "switch_date": switch if switch in dates else None,
+            "source": "iFinD get_stock_performance 逐交易日估值（按交易日历过滤）",
+            "note": "虚线为 33.3% 与 66.7% 分位对应的倍数，把近一年分为低、中、高三个区间；分位只说明相对自身历史的位置，不代表低估或高估；负值为亏损期，倍数不适用；历史走势不预示未来"}
+
+
 LITHIUM_CHART_ORDER = ("spodumene", "carbonate", "hydroxide", "futures")  # raw material first: drawn darkest
 
 

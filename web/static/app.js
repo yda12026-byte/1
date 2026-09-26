@@ -414,6 +414,61 @@ function renderLithiumChart(chart) {
   addText(figure, 'div', 'chart-note', `${chart.note}。基期均为 ${chart.series[0].base_date}；已剔除非交易日数据：${dropped || '无'}。来源：${chart.source}。`);
   return figure;
 }
+// 估值历史位置：PB 在上、PE(TTM) 在下，共用时间轴；虚线为三分位边界，圆点为截止日。
+function renderValuationChart(chart) {
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const W = 720, PH = 120, GAP = 26, L = 44, R = 112, T = 18;
+  const dates = chart.dates, n = dates.length, H = T + chart.panels.length * (PH + GAP) + 10;
+  const x = i => L + (W - L - R) * i / (n - 1);
+  const node = (tag, attrs, parent) => { const e = document.createElementNS(svgNS, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); if (parent) parent.append(e); return e; };
+  const figure = el('figure', 'price-chart');
+  addText(figure, 'figcaption', 'chart-title', `估值历史位置（${dates[0]} 至 ${dates[n - 1]}，逐交易日）`);
+  const holder = el('div', 'chart-holder'); figure.append(holder);
+  const svg = node('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img',
+    'aria-label': chart.panels.map(p => `${p.label} 截止 ${p.current}，近一年分位 ${p.percentile ?? '不适用'}%（${p.band ?? '不适用'}）`).join('；') }, holder);
+  const scales = chart.panels.map((p, k) => {
+    const top = T + k * (PH + GAP), lo = Math.min(...p.values), hi = Math.max(...p.values), pad = (hi - lo) * 0.08 || 1;
+    const y = v => top + PH * (1 - (v - (lo - pad)) / ((hi + pad) - (lo - pad)));
+    node('text', { x: L, y: top - 5, class: 'panel-title' }, svg).textContent = p.label;
+    for (const v of [lo, hi]) {
+      node('line', { x1: L, x2: W - R, y1: y(v), y2: y(v), class: 'grid' }, svg);
+      node('text', { x: L - 6, y: y(v) + 4, class: 'axis', 'text-anchor': 'end' }, svg).textContent = v.toFixed(1);
+    }
+    if (lo < 0 && hi > 0) node('line', { x1: L, x2: W - R, y1: y(0), y2: y(0), class: 'grid base' }, svg);
+    for (const [v, name] of [[p.lower, '33.3% 分位'], [p.upper, '66.7% 分位']]) {
+      if (v === null) continue;
+      node('line', { x1: L, x2: W - R, y1: y(v), y2: y(v), class: 'band-line' }, svg);
+      node('text', { x: W - R + 6, y: y(v) + 4, class: 'end-label' }, svg).textContent = `${name} ${v.toFixed(2)}`;
+    }
+    node('path', { d: p.values.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(''), class: 'price-line subject' }, svg);
+    node('circle', { cx: x(n - 1), cy: y(p.current), r: 4.5, class: 'current-dot' }, svg);
+    const tag = node('text', { x: x(n - 1) - 8, y: y(p.current) - 8, class: 'current-label', 'text-anchor': 'end' }, svg);
+    tag.textContent = p.percentile === null ? `截止 ${p.current.toFixed(2)}（不适用）`
+      : p.non_positive_days ? `截止 ${p.current.toFixed(2)}` : `截止 ${p.current.toFixed(2)} · 分位 ${p.percentile}%（${p.band}）`;
+    if (p.non_positive_days) node('text', { x: L + 6, y: top + 12, class: 'switch-label' }, svg).textContent = `含 ${p.non_positive_days} 个负值交易日（亏损期倍数不适用），不画分位区间`;
+    return { p, y, top };
+  });
+  const bottom = T + chart.panels.length * (PH + GAP) - GAP;
+  for (const [i, anchor] of [[0, 'start'], [n - 1, 'end']]) node('text', { x: x(i), y: bottom + 16, class: 'axis', 'text-anchor': anchor }, svg).textContent = dates[i];
+  if (chart.switch_date) {
+    const i = dates.indexOf(chart.switch_date), pe = scales.find(s => s.p.key === 'pe_ttm');
+    node('line', { x1: x(i), x2: x(i), y1: pe.top, y2: pe.top + PH, class: 'switch-line' }, svg);
+    node('text', { x: x(i) - 4, y: pe.top + PH - 4, class: 'switch-label', 'text-anchor': 'end' }, svg).textContent = `${chart.switch_date} 半年报公告后 TTM 分母切换`;
+  }
+  const cross = node('line', { y1: T, y2: bottom, class: 'crosshair', visibility: 'hidden' }, svg);
+  const tip = addText(holder, 'div', 'chart-tip'); tip.hidden = true;
+  svg.addEventListener('mousemove', event => {
+    const box = svg.getBoundingClientRect(), px = (event.clientX - box.left) * W / box.width;
+    if (px < L || px > W - R) { cross.setAttribute('visibility', 'hidden'); tip.hidden = true; return; }
+    const i = Math.round((px - L) / (W - L - R) * (n - 1));
+    cross.setAttribute('x1', x(i)); cross.setAttribute('x2', x(i)); cross.setAttribute('visibility', 'visible');
+    tip.textContent = [dates[i], ...chart.panels.map(p => `${p.label}　${p.values[i].toFixed(2)} 倍`)].join('\n');
+    tip.hidden = false; tip.style.left = `${Math.min(Math.max(x(i) / W * 100, 18), 70)}%`;
+  });
+  svg.addEventListener('mouseleave', () => { cross.setAttribute('visibility', 'hidden'); tip.hidden = true; });
+  addText(figure, 'div', 'chart-note', `${chart.note}。来源：${chart.source}。`);
+  return figure;
+}
 function renderProgress(question) {
   const card = el('div', 'progress-card');
   const head = el('div', 'progress-head');
@@ -461,6 +516,7 @@ function renderRuns(payload) {
     const dim = run.route.dimension, dims = runs.map(r => r.route.dimension);
     if (payload.price_chart && (dim === 'market' || (dim === 'events' && !dims.includes('market')))) section.append(renderPriceChart(payload.price_chart));
     if (payload.lithium_chart && dim === 'industry') section.append(renderLithiumChart(payload.lithium_chart));
+    if (payload.valuation_chart && dim === 'valuation') section.append(renderValuationChart(payload.valuation_chart));
     for (const conclusion of run.conclusions) section.append(renderConclusion(conclusion, byId, run.id, payload.snapshot));
     if (dim === 'events' && payload.clues) { section.append(renderClues(payload.clues)); payload = { ...payload, clues: null }; }
     wrap.append(section);

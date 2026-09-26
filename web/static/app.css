@@ -223,6 +223,12 @@ button { cursor: pointer; }
 .chart-legend .key.li::before { content: ''; width: 18px; height: 0; border-top: 2px solid var(--li); }
 .chart-legend .key.li-3::before { border-top-style: dashed; }
 .chart-legend .key.li-4::before { border-top-style: dotted; }
+.price-chart .panel-title { fill: var(--ink); font-size: 12px; font-weight: 700; }
+.price-chart .band-line { stroke: var(--bronze); stroke-width: 1; stroke-dasharray: 5 4; opacity: .8; }
+.price-chart .current-dot { fill: var(--card); stroke: var(--accent); stroke-width: 2.5; }
+.price-chart .current-label { fill: var(--ink); font-size: 11px; font-weight: 700; paint-order: stroke; stroke: var(--card); stroke-width: 3px; }
+.price-chart .switch-line { stroke: var(--ink-2); stroke-width: 1; stroke-dasharray: 2 3; }
+.price-chart .switch-label { fill: var(--muted); font-size: 10.5px; paint-order: stroke; stroke: var(--card); stroke-width: 3px; }
 .chart-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; color: var(--ink-2); margin-top: 8px; }
 .chart-legend .key { display: inline-flex; align-items: center; gap: 6px; }
 .chart-legend .key.subject::before, .chart-legend .key.peer::before { content: ''; width: 18px; height: 0; border-top: 2.5px solid var(--accent); }

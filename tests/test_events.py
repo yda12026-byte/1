@@ -13,7 +13,7 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "tests"))
 
 from diagnosis.dimension_events import events_run, price_chart  # noqa: E402
-from diagnosis.dimensions import lithium_chart, run_dimension  # noqa: E402
+from diagnosis.dimensions import lithium_chart, run_dimension, valuation_chart  # noqa: E402
 from diagnosis.events import classify, periodic_deadline  # noqa: E402
 from diagnosis.validator import PROHIBITED_PATTERNS  # noqa: E402
 from product_fixture import product_payload  # noqa: E402
@@ -123,6 +123,30 @@ class LithiumChartTests(unittest.TestCase):
         industry = run_dimension("industry", {**payload, "snapshot_id": "synthetic"}, "锂价如何", {"intent": "industry"})
         ids = {e.id for e in industry.evidence}
         self.assertTrue({s["evidence_id"] for s in chart["series"]} <= ids)
+
+
+class ValuationChartTests(unittest.TestCase):
+    def test_band_lines_and_cutoff_percentile_match_the_valuation_evidence(self):
+        payload = {**product_payload(events=True), "snapshot_id": "synthetic"}
+        chart = valuation_chart(payload)
+        self.assertEqual([p["key"] for p in chart["panels"]], ["pb", "pe_ttm"])
+        run = run_dimension("valuation", payload, "估值", {"intent": "valuation"})
+        evidence = {e.id: e for e in run.evidence}
+        for panel in chart["panels"]:
+            self.assertEqual(len(panel["values"]), len(chart["dates"]))
+            self.assertIn(panel["evidence_id"], evidence)
+            rank = evidence[panel["percentile_evidence_id"]]
+            self.assertEqual(panel["percentile"], float(rank.value))
+            below = sum(v <= panel["lower"] for v in panel["values"]) / len(panel["values"]) * 100
+            self.assertLessEqual(round(below, 1), 33.3)
+        payload["valuation_series"]["points"][0][1]["pe_ttm"] = -20.0
+        pe = valuation_chart(payload)["panels"][1]
+        self.assertEqual((pe["non_positive_days"], pe["lower"], pe["upper"]), (1, None, None))
+        # The TTM switch marker follows the 半年度报告 disclosure date in the events block, when it is a trading day.
+        self.assertIsNone(chart["switch_date"])  # synthetic calendar ends before 2026-08-28
+        payload["events"]["announcements"][6]["date"] = chart["dates"][-3]
+        self.assertEqual(valuation_chart(payload)["switch_date"], chart["dates"][-3])
+        self.assertIn("不代表低估或高估", chart["note"])
 
 
 if __name__ == "__main__":
