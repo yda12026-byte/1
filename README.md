@@ -6,7 +6,7 @@
 
 - 地址：<https://lithium-diagnosis-319862-8-1496111595.sh.run.tcloudbase.com>（腾讯云 CloudBase 云托管）
 - 首次打开会出现 CloudBase 测试域名的“风险提醒”页，等待倒计时后点击“确定访问”即可进入。
-- 状态：服务已从本仓库 `main` 分支构建上线，当前两份快照仍不可用，诊断问题返回 503。CloudBase 挂载试验 `004`、`005` 在实例启动前报 COS URL 格式错误；`008` 后来被停止，不能作为新的挂载失败证据。公网全量验收尚未通过，见[测试说明](docs/test-plan.md)。
+- 状态：**已上线，公网验收 21/21 通过**（2026-09-26 17:05）。服务从本仓库 `main` 分支构建；启动时用只读密钥从私有 COS 下载固定快照（[决策 0020](docs/decisions/0020-snapshot-download-fallback.md)），此前的存储挂载方案因平台 cosfs 失败而弃用。验收结果见[测试说明](docs/test-plan.md)。
 
 ## 产品能做什么
 

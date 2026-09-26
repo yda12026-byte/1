@@ -73,3 +73,10 @@ Git 构建只能读取已推送的提交。首次部署前需完成代码、文�
 - 当前线上无挂载版本 `007` 的 `/healthz` 为 200，但 `profit_cash`、`product` 均为 `missing`。尚未运行 21 项公网验收，也未验证重启后的 ID。
 - COS 对象详情显示**实际对象地址**为桶内 `snapshots/product_snapshot_002466.json`，同目录另有 `profit_cash_002466.json`；交接原写的 `snapshots/002466/` 与实际地址不一致。产品对象仍为 12:25 上传的旧文件（控制台显示 297.32KB），本地新文件 ID `f15e78c2f368f02b87e7`、大小 322118 字节。匿名 HEAD 请求该旧对象得到 403。重新上传时须核对准确对象名、覆盖后 ID 和私有权限。
 - `004`、`005` 的 cosfs URL 格式错误仍待解决。经用户完成账号验证后，使用只读 `DescribeCloudRunServerDetail` 查询当前服务配置：挂载 `Type=COS`、`Endpoint=cos.ap-shanghai.myqcloud.com`（无协议）、`SrcPath=/snapshots/002466`、`DstPath=/mnt/snapshots`、`ReadOnly=false`，且配置中存在连接密钥引用；未输出其值。说明无协议 Endpoint 确实保存在当前服务配置中，而不只是日志格式问题。用户明确不采用路径 B，未实施启动下载；尚未调用配置修改接口或发起新部署。注意本节以上旧交接内容是当时状态，以上实测为当前状态。
+
+### 结论：改为启动下载并上线（2026-09-26 17:05，Claude Code）
+
+- 按 API 文档 `VolumeConf.Endpoint` 示例，用户经 API Explorer 调用 `UpdateCloudRunServer` 写入 `https://cos.ap-shanghai.myqcloud.com`、源目录 `/snapshots`、只读、最小副本 1（010）：地址格式警告消失，但 cosfs 仍“挂载失败”且无原因；改 `http://`（011）结果相同。挂载组件不可观测，停止试验。
+- 经用户批准启用决策 0020：关闭存储挂载，新增 `DIAGNOSIS_COS_BUCKET`、`DIAGNOSIS_COS_REGION`、`DIAGNOSIS_COS_SECRET_ID`、`DIAGNOSIS_COS_SECRET_KEY`（只读子账号），从 `main` 重新部署。`/healthz` 返回 `snapshot_source: {mode: cos_download, state: ok}`，两份快照 `fixed`；公网验收 21/21。
+- 现行配置要点：端口 8080；快照对象 `snapshots/profit_cash_002466.json`、`snapshots/product_snapshot_002466.json`（私有）；更新快照时覆盖对象后需重启实例重新下载。
+- 待办：用户更换曾在对话中出现过的 DeepSeek 密钥并更新环境变量；确认最小实例数为 1 以避免冷启动（此前约 27 秒）。

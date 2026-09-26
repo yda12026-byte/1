@@ -29,5 +29,6 @@
 | 2026-09-26 | Claude Code：按用户要求调整超范围问题体验与路由 | 分类说明加推荐问题、锂价路由、窄问题口径注明；决策 0019 | 用真实问法实测路由后发现三处问题（锂价走势误选行情、拒答文案过时且不分原因、窄问题与维度诊断报告期不同）并报告用户，按用户选择修改；测试保证推荐问题都可回答 | `src/diagnosis/routing.py`、`webapp.py`、`web/static/app.js`、`tests/` |
 
 | 2026-09-26 | Codex：接手 CloudBase 部署故障，通过浏览器与只读 API 核对服务配置及部署任务 | 取得 `005`/`008` 部署事件、实际 COS 对象路径与匿名访问结果；更新部署交接和测试状态 | `005` 的 `/mount.sh` 明确报 cosfs URL 格式错误；只读服务配置确认 Endpoint 无协议，任务详情确认 `008` 为 `stopped`、无失败原因，纠正此前将两者归为相同故障的误判。实际对象位于 `snapshots/`；未输出密钥或对象内容，未调用配置修改接口。用户拒绝路径 B | `docs/deployment-cloudbase.md`、`docs/test-plan.md`、`docs/worklog/2026-09-26.md` |
+| 2026-09-26 | Claude Code：接手 Codex 的部署排查并打通公网 | 查阅 tcbr API 数据结构、指导 API Explorer 修改挂载、实现并启用启动下载（决策 0020）、公网验收 | 发现交接中快照目录写错（`snapshots/002466/` 应为 `snapshots/`）并更正；用户贴出的配置含 DeepSeek 密钥明文，未复述、未记录并提醒更换；两次 API 修正挂载失败后停止盲试改用可观测方案；用无效密钥实测真实桶确认 SDK 与网络链路；线上 21/21 | `src/diagnosis/cos_fetch.py`、`docs/decisions/0020-snapshot-download-fallback.md`、`docs/deployment-cloudbase.md` |
 
 关键数字和结论必须回到原始字段或原文；后续在此记录发现并纠正的错误或不合理结果。
