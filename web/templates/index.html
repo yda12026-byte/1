@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#10212b">
+  <meta name="theme-color" content="#ffffff">
   <title>天齐锂业 · 证据诊断</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
   <script src="{{ url_for('static', filename='app.js') }}" defer></script>
@@ -17,7 +17,7 @@
     <main class="workspace">
       <aside class="sidebar" aria-label="研究范围">
         <h1>从一个问题<br>走向证据。</h1>
-        <p class="intro">围绕天齐锂业，核对财务事实、计算过程与尚未解决的缺口。结论只覆盖已核准的固定快照。</p>
+        <p class="intro">围绕天齐锂业的六个维度，给出可追溯到原始字段与报告页码的结论。数据截至 2026-08-31 的固定快照。</p>
         <div class="sidebar-card">
           <div class="card-kicker">研究区间</div>
           <div class="window">2025.08.31 <span>—</span> 2026.08.31</div>
@@ -29,15 +29,15 @@
       </aside>
       <section class="chat-panel" aria-label="对话诊断">
         <div class="chat-heading">
-          <div><h2>研究对话</h2></div>
+          <div><div class="chat-kicker">天齐锂业 · 002466.SZ</div><h2>研究对话</h2></div>
           <div class="live-pill"><span class="live-dot"></span> 四类财务问法可运行</div>
         </div>
         <div id="snapshot-banner" class="snapshot-banner" role="status">正在检查固定快照…</div>
         <div id="messages" class="messages" role="log" aria-live="polite">
           <article class="welcome message assistant-message">
             <div class="message-label">研究助手</div>
-            <h3>先从可核对的问题开始。</h3>
-            <p>点击示例问题，查看结论如何回到报告期、原始字段和计算输入。其他维度会列出字段需求与证据缺口。</p>
+            <h3>先从一个问题开始。</h3>
+            <p>试试“全面诊断”：先看总体解读和六维概览，再按维度展开结论，点开任意证据即可看到数值、口径、公式与来源。</p>
           </article>
         </div>
         <div class="composer-wrap">
@@ -45,10 +45,10 @@
           <div id="examples" class="examples"></div>
           <form id="chat-form" class="composer">
             <label class="sr-only" for="question">输入研究问题</label>
-            <textarea id="question" name="question" rows="2" maxlength="500" placeholder="例如：天齐锂业的利润和经营现金流匹配吗？" required></textarea>
+            <textarea id="question" name="question" rows="2" maxlength="500" placeholder="例如：天齐锂业全面诊断一下" required></textarea>
             <button id="send" type="submit" aria-label="发送问题">发送 <span aria-hidden="true">↗</span></button>
           </form>
-          <p class="composer-note">有限追问示例：那现金流呢？它们的比值呢？ 对话只保留在当前页面。</p>
+          <p class="composer-note">不提供买卖建议或涨跌预测 · 对话只保留在当前页面</p>
         </div>
       </section>
     </main>
