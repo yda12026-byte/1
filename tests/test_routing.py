@@ -151,7 +151,7 @@ class RouterTests(unittest.TestCase):
 
     def test_important_unverified_field_stays_visible_as_a_gap(self):
         risk = route_question("主要风险有哪些？")
-        self.assertEqual(risk["execution_status"], "planned")
+        self.assertEqual(risk["execution_status"], "implemented")
         self.assertIn("f070", risk["display_plan"]["default_field_ids"])
         sensitivity = next(field for field in risk["fields"] if field["id"] == "f070")
         self.assertEqual(sensitivity["candidate_status"], "待核")

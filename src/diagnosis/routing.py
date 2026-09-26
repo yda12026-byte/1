@@ -77,7 +77,9 @@ def _fallback(question: str) -> tuple[str, tuple[str, ...]]:
         return "net_profit_status", INTENTS["net_profit_status"]
     if _narrow_intent_is_supported("operating_cash_flow_status", question):
         return "operating_cash_flow_status", INTENTS["operating_cash_flow_status"]
-    dimensions = tuple(dimension for dimension, words in KEYWORDS.items() if any(word in question for word in words))
+    # "经营现金流" is a financial item; its "经营" must not also select operating quality.
+    scan = re.sub(r"经营(?:活动)?现金", "现金", question)
+    dimensions = tuple(dimension for dimension, words in KEYWORDS.items() if any(word in scan for word in words))
     if len(dimensions) > 1:
         return "multi_dimension", dimensions
     if dimensions:

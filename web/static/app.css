@@ -55,3 +55,5 @@
 .collapse-tools{display:flex;gap:8px;margin-top:10px}.collapse-all{background:#f4f6f8;border:1px solid #dfe4ea;border-radius:14px;padding:4px 12px;font-size:11px;color:#3a4d63}.collapse-all:hover{border-color:#8497ad}
 @media(max-width:560px){.answer-header{flex-wrap:wrap}.answer.collapsed .answer-brief{flex-basis:100%;order:5;white-space:normal}}
 .messages{overflow-x:hidden}.runs{max-width:100%;min-width:0}.assistant-message{max-width:760px;width:100%;min-width:0}
+
+.dim-operating_quality{--dim:#4a6f5f}.dim-risk{--dim:#7a5560}

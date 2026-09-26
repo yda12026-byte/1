@@ -202,7 +202,7 @@ function renderRuns(payload) {
     wrap.append(section);
   }
   if (payload.clues) { addText(wrap, 'h3', 'run-title', '重要事件'); wrap.append(renderClues(payload.clues)); }
-  if (payload.gaps?.length) { addText(wrap, 'h3', 'run-title', '尚未接入的维度'); wrap.append(renderGaps(payload.gaps, '经营质量、风险等维度的优先字段尚未核准，以下仅列证据缺口，不构成诊断。')); }
+  if (payload.gaps?.length) { addText(wrap, 'h3', 'run-title', '尚未接入的维度'); wrap.append(renderGaps(payload.gaps, '以下维度的优先字段尚未接入，仅列证据缺口，不构成诊断。')); }
   addMessage(wrap);
 }
 function renderPlanned(payload) {
@@ -247,5 +247,5 @@ fetch('/api/bootstrap').then(response => response.json()).then(data => {
     more.append(box); examples.append(more);
   }
   const pill = document.querySelector('.live-pill');
-  if (pill && product.status === 'fixed') pill.lastChild.textContent = ' 四维诊断可运行';
+  if (pill && product.status === 'fixed') pill.lastChild.textContent = ' 六维诊断可运行';
 }).catch(() => { const banner = document.querySelector('#snapshot-banner'); banner.classList.add('unavailable'); banner.textContent = '服务状态暂时无法读取。'; });

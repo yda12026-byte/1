@@ -83,8 +83,8 @@ class WebAppTests(unittest.TestCase):
         self.assertEqual(client.get("/").status_code, 200)
         ready = self.client(product=self.product()).get("/api/bootstrap").get_json()
         statuses = {d["id"]: d["status"] for d in ready["dimensions"]}
-        self.assertEqual([statuses[k] for k in ("valuation", "financial_trend", "market", "industry", "events", "risk")],
-                         ["implemented"] * 4 + ["clues", "planned"])
+        self.assertEqual([statuses[k] for k in ("operating_quality", "valuation", "financial_trend", "market", "industry",
+                                                "risk", "events")], ["implemented"] * 6 + ["clues"])
         self.assertEqual(ready["product_snapshot"]["trading_days"], 242)
 
     def test_four_examples_return_traceable_runs(self):
@@ -131,7 +131,7 @@ class WebAppTests(unittest.TestCase):
 
     def test_planned_dimensions_show_gaps_without_reading_snapshot(self):
         client = self.client(CACHE / f"absent_{uuid4().hex}.json")
-        for question in ("天齐锂业主要风险有哪些？", "经营质量如何？", "2024年净利润同比增长多少？"):
+        for question in ("天齐锂业近期有哪些公告？", "2024年净利润同比增长多少？"):
             status, data = self.ask(client, question)
             self.assertEqual((status, data["status"]), (200, "not_implemented"), question)
             self.assertNotIn("run", data)
@@ -224,9 +224,8 @@ class WebAppTests(unittest.TestCase):
         self.assertEqual(data["snapshot"]["created_at"], product_payload()["created_at"])
         _, overview = self.ask(client, "天齐锂业全面诊断一下")
         self.assertEqual([run["route"]["dimension"] for run in overview["runs"]],
-                         ["financial_trend", "valuation", "market", "industry"])
-        self.assertTrue(overview["gaps"])
-        self.assertTrue({gap["dimension"] for gap in overview["gaps"]} <= {"operating_quality", "events", "risk"})
+                         ["operating_quality", "financial_trend", "valuation", "market", "industry", "risk"])
+        self.assertEqual({gap["dimension"] for gap in overview["gaps"]}, {"events"})
         self.assertEqual(overview["clues"]["status"], "unverified_clue")
         _, events = self.ask(client, "天齐锂业近期有哪些公告？")
         self.assertEqual(events["status"], "not_implemented")

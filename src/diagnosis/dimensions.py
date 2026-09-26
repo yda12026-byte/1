@@ -18,7 +18,7 @@ from .priority import priority_for_field
 from .product_snapshot import NAMES, SUBJECT
 
 CONFIG_VERSION = "dimensions-v1"
-DIMENSION_RUNNERS = ("financial_trend", "valuation", "market", "industry")
+DIMENSION_RUNNERS = ("operating_quality", "financial_trend", "valuation", "market", "industry", "risk")
 PERIOD, BASE = "2026-06-30", "2025-06-30"
 YI = Decimal("100000000")
 
@@ -135,6 +135,54 @@ def _cross_check(computed: Evidence, reference: Evidence, tolerance: Decimal = D
         computed.value = None
 
 
+# --- official half-year extracts ----------------------------------------------
+
+DEBT_ITEMS = ("短期借款", "一年内到期的非流动负债", "长期借款", "应付债券", "租赁负债")
+
+
+def _official(run: Run, item: str, period_end: str, metric: str, field_id: str, label: str) -> Evidence:
+    rows = {(row["period_end"], row["item"]): row for row in run.snapshot.get("official_h1", {}).get("items", [])}
+    row = rows.get((period_end, item))
+    eid = f"{metric}:{SUBJECT}:{period_end}"
+    if row is None:
+        return run.source(eid, metric, field_id, f"{label}（{period_end[:7]}）", None, None, time={"period_end": period_end},
+                          scope={"subject": SUBJECT}, source={"provider": "官方半年报（人工摘录）", "endpoint": "official_extract_h1.json", "field": item,
+                                                              "query_ref": "快照缺少该摘录项"},
+                          status="missing", reason="快照缺少该摘录项")
+    value, unit, scope = row["value"], row["unit"], {"subject": SUBJECT, "basis": row.get("note", "")}
+    status, reason = "valid", None
+    if unit == "文本":
+        value = (row.get("note") or "").split("原文：")[-1] or None
+    elif value is not None and unit == "元":
+        value, unit = q(D(value) / YI, "0.0001"), "亿元"
+        scope["unit_conversion"] = "元 ÷ 1e8，保留四位小数"
+    elif value is not None:
+        value = D(value)
+    if value is None:
+        status, reason = "missing", row.get("note") or "报告未披露"
+    elif row.get("crosscheck") and "不一致" in row["crosscheck"]:
+        status, reason = "conflict", f"官方报告与 iFinD 不一致：{row['crosscheck']}"
+    check = f"；iFinD 交叉核对：{row['crosscheck']}" if row.get("crosscheck") else ""
+    return run.source(eid, metric, field_id, f"{label}（{period_end[:7]}）", value, unit, time={"period_end": period_end},
+                      scope=scope, source={"provider": "天齐锂业官方半年报（人工摘录）", "endpoint": row["pdf"], "field": item,
+                                           "query_ref": f"第 {row['page']} 页 · {row['table_or_section']}{check}"},
+                      status=status, reason=reason)
+
+
+def _net_cash(run: Run, cash: Evidence) -> tuple[Evidence, Evidence]:
+    parts = [_official(run, item, PERIOD, f"debt_{i}", "f027", item) for i, item in enumerate(DEBT_ITEMS)]
+    total = sum((D(item.value) for item in parts), Decimal(0)) if all(item.value is not None for item in parts) else None
+    debt = run.computed("interest_bearing_debt:" + PERIOD, "interest_bearing_debt", "f027", "有息债务合计（期末）",
+                        total, "亿元", formula_id="sum_interest_bearing_items",
+                        formula="短期借款 + 一年内到期的非流动负债 + 长期借款 + 应付债券 + 租赁负债（官方半年报合并资产负债表）",
+                        inputs=parts, time={"period_end": PERIOD})
+    net = run.computed("net_cash:" + PERIOD, "net_cash", "f027", "净现金（货币资金 − 有息债务）",
+                       q(D(cash.value) - total, "0.0001") if total is not None and cash.value else None, "亿元",
+                       formula_id="cash_minus_interest_bearing_debt", formula="货币资金 − 有息债务合计；为负表示有息债务多于货币资金",
+                       inputs=[cash, debt], time={"period_end": PERIOD})
+    return net, debt
+
+
 # --- financial trend -------------------------------------------------------
 
 def _statement(snapshot: dict, code: str, period_end: str) -> dict | None:
@@ -190,7 +238,11 @@ def financial_run(snapshot: dict, question: str, route: dict, run_id: str) -> Di
         spec = ("fact", "negative", "营业收入与归母净利润同比均下降", "按半年报累计口径，营业收入与归母净利润同比均下降。")
     else:
         spec = ("fact", "mixed", "营业收入与归母净利润同比方向不一致", "按半年报累计口径，营业收入与归母净利润的同比方向不一致。")
-    run.conclude("growth", "f018", *spec, supports=[rev_yoy, npp_yoy], context=[rev, rev_b, npp, npp_b],
+    ded, ded_b = (_official(run, "归属于上市公司股东的扣除非经常性损益的净利润", p, "deducted_net_profit", "f019", "扣非归母净利润")
+                  for p in (PERIOD, BASE))
+    ded_yoy = _pct_change(run, "deducted_net_profit_yoy:" + PERIOD, "deducted_net_profit_yoy", "f019", "扣非归母净利润同比（累计）",
+                          ded, ded_b, t)
+    run.conclude("growth", "f018", *spec, supports=[rev_yoy, npp_yoy], context=[rev, rev_b, npp, npp_b, ded, ded_b, ded_yoy],
                  limitations=growth_limits, highlights=[rev_yoy, npp_yoy, npp])
 
     np_ = _statement_evidence(run, SUBJECT, PERIOD, "net_profit", "net_profit", "f021", "净利润")
@@ -221,22 +273,21 @@ def financial_run(snapshot: dict, question: str, route: dict, run_id: str) -> Di
     debt, debt_b = (_indicator_evidence(run, SUBJECT, p, "assets_debt_ratio", "assets_debt_ratio", "f028", "资产负债率") for p in (PERIOD, BASE))
     turn, turn_b = (_indicator_evidence(run, SUBJECT, p, "inventory_turnover_ratio", "inventory_turnover", "f030", "存货周转率", "次") for p in (PERIOD, BASE))
     cash = _statement_evidence(run, SUBJECT, PERIOD, "cash", "cash", "f027", "货币资金")
-    liab = _statement_evidence(run, SUBJECT, PERIOD, "total_debt", "total_liabilities", "f027", "负债合计（扶摇 total_debt）")
-    gap = run.computed("cash_minus_liabilities:" + PERIOD, "cash_minus_liabilities", "f027", "货币资金减负债合计",
-                       q(D(cash.value) - D(liab.value), "0.0001") if cash.value and liab.value else None, "亿元",
-                       formula_id="cash_minus_total_liabilities",
-                       formula="货币资金 − 负债合计。扶摇 total_debt 等于总资产减所有者权益，是负债合计而非有息债务，因此本项不是净现金",
-                       inputs=[cash, liab], time={"period_end": PERIOD})
+    net_cash, ib_debt = _net_cash(run, cash)
+    inv, inv_b = (_official(run, "存货", p, "inventory", "f030", "存货") for p in (PERIOD, BASE))
+    inv_change = _pct_change(run, "inventory_change:" + PERIOD, "inventory_change", "f030", "存货较上年同期末变化", inv, inv_b, t)
     if debt.value is not None and debt_b.value is not None:
         change = D(debt.value) - D(debt_b.value)
-        spec = (("fact", "positive", "资产负债率较上年同期下降", "资产负债率较上年同期下降；存货周转与现金对负债的覆盖见证据。") if change < 0 else
-                ("fact", "negative", "资产负债率较上年同期上升", "资产负债率较上年同期上升；存货周转与现金对负债的覆盖见证据。") if change > 0 else
+        spec = (("fact", "positive", "资产负债率较上年同期下降", "资产负债率较上年同期下降；净现金、存货与周转见证据。") if change < 0 else
+                ("fact", "negative", "资产负债率较上年同期上升", "资产负债率较上年同期上升；净现金、存货与周转见证据。") if change > 0 else
                 ("fact", "neutral", "资产负债率与上年同期持平", "资产负债率与上年同期持平。"))
     else:
         spec = ("unknown", "unknown", "资产负债率变化证据不足", "资产负债率变化证据不足。")
-    run.conclude("balance_sheet", "f028", *spec, supports=[debt, debt_b], context=[turn, turn_b, cash, liab, gap],
-                 limitations=["存货周转率为半年累计口径，只与上年同期比较", "负债合计包含经营性负债，不等于有息债务"],
-                 highlights=[debt, turn, gap])
+    run.conclude("balance_sheet", "f028", *spec, supports=[debt, debt_b],
+                 context=[net_cash, ib_debt, cash, inv, inv_b, inv_change, turn, turn_b],
+                 limitations=["存货周转率为半年累计口径，只与上年同期比较",
+                              "有息债务按五项借款类科目合计，一年内到期的非流动负债可能含少量非借款项目"],
+                 highlights=[debt, net_cash, inv_change, turn])
     return run.finish(question, route)
 
 
@@ -527,9 +578,15 @@ def industry_run(snapshot: dict, question: str, route: dict, run_id: str) -> Dia
 RUNNERS = {"financial_trend": financial_run, "valuation": valuation_run, "market": market_run, "industry": industry_run}
 
 
+def _runners() -> dict:
+    from .dimensions_extra import operating_quality_run, risk_run  # late import: extra module builds on this one
+    return {**RUNNERS, "operating_quality": operating_quality_run, "risk": risk_run}
+
+
 def run_dimension(dimension: str, snapshot: dict, question: str, route: dict) -> DiagnosisRun:
-    if dimension not in RUNNERS:
+    runners = _runners()
+    if dimension not in runners:
         raise ValueError(f"dimension is not implemented: {dimension}")
-    return RUNNERS[dimension](snapshot, question, {**route, "dimension": dimension,
+    return runners[dimension](snapshot, question, {**route, "dimension": dimension,
                                                    "dimension_label": DIMENSIONS[dimension],
                                                    "window": WINDOW.copy()}, str(uuid4()))

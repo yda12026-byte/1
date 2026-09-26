@@ -30,11 +30,13 @@ EXAMPLES = [
     "天齐锂业的利润和经营现金流匹配吗？",
 ]
 DIMENSION_EXAMPLES = [
+    "天齐锂业全面诊断一下",
     "天齐锂业估值处于什么位置？",
     "天齐锂业近一年财务趋势如何？",
+    "天齐锂业各业务的毛利率如何？",
     "天齐锂业近一年股价表现和波动如何？",
     "锂价和同行比较情况如何？",
-    "天齐锂业全面诊断一下",
+    "天齐锂业有哪些主要风险？",
     "天齐锂业近期有哪些公告？",
 ]
 FOLLOWUPS = {
@@ -157,7 +159,7 @@ def create_app(*, snapshot_path: Path | None = None, product_snapshot_path: Path
                         "examples": EXAMPLES, "dimension_examples": DIMENSION_EXAMPLES if ready else [],
                         "dimensions": [{"id": key, "label": value, "status": status(key)} for key, value in DIMENSIONS.items()],
                         "snapshot": _snapshot_state(path), "product_snapshot": product,
-                        "scope": "估值、财务趋势、行情特征、行业位置可诊断；重要事件仅列待核检索线索；经营质量与风险展示证据缺口。"})
+                        "scope": "经营质量、财务趋势、估值、行情特征、行业位置、风险六维可诊断；重要事件仅列待核检索线索。"})
 
     def dimension_payload(resolved: str, question: str, route: dict):
         state, document = _product_state(product_path)

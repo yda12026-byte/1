@@ -84,7 +84,53 @@ def _months() -> list[tuple[str, str]]:
     return windows
 
 
+def _official_items() -> list[dict]:
+    """Synthetic half-year extracts; amounts in 元 like the real extraction file."""
+    base = {"pdf": "synthetic.pdf", "page": 1, "table_or_section": "synthetic", "note": "半年累计"}
+    rows = []
+
+    def add(period, item, value, unit="元", crosscheck=None, note=None):
+        rows.append({**base, "item": item, "period_end": period, "value": value, "unit": unit,
+                     "crosscheck": crosscheck, **({"note": note} if note else {})})
+
+    for period, current in (("2026-06-30", True), ("2025-06-30", False)):
+        k = 1.0 if current else 0.5
+        add(period, "锂矿·营业收入", 80e8 * k)
+        add(period, "锂矿·毛利率", 70.0 if current else 60.0, "%")
+        add(period, "锂化合物及衍生品·营业收入", 120e8 * k)
+        add(period, "锂化合物及衍生品·毛利率", 50.0 if current else 30.0, "%")
+        add(period, "投资收益", 12e8 * k)
+        add(period, "其中：对联营企业和合营企业的投资收益", 11e8 * k)
+        add(period, "归属于母公司股东的净利润", 40e8 if current else 10e8)
+        add(period, "归属于上市公司股东的扣除非经常性损益的净利润", 38e8 if current else 9e8, crosscheck="一致")
+        add(period, "存货", 30e8 if current else 25e8, crosscheck="一致")
+        for item, value in (("短期借款", 10e8), ("一年内到期的非流动负债", 5e8), ("长期借款", 50e8),
+                            ("应付债券", 0.0), ("租赁负债", 5e8)):
+            add(period, item, value)
+        add(period, "资产减值损失", -1e8)
+        add(period, "信用减值损失", -0.1e8)
+        add(period, "存货跌价准备期末余额", 1e8 if current else 4e8)
+        add(period, "购建固定资产、无形资产和其他长期资产支付的现金", 15e8)
+        add(period, "锂精矿产量", 70.0 if current else 56.0, "万吨")
+        for item in ("锂精矿销量", "锂化合物及衍生品·销量", "锂化合物及衍生品·产量"):
+            add(period, item, None, "吨", note="报告未披露该期数值")
+        for name, text in (("格林布什化学级锂精矿工厂三期", "已完工"), ("雅江锂辉石矿采选一期工程", "建设中"),
+                           ("苏州年产3万吨氢氧化锂项目", "已完工")):
+            add(period, f"在建项目·{name}·工程进度", None, "文本", note=f"工程进度原文：{text}")
+    return rows
+
+
 def product_payload() -> dict:
+    payload = _base_payload()
+    payload["official_h1"] = {"items": _official_items(), "source": {}}
+    for blocks in payload["indicators"].values():
+        for period, block in blocks.items():
+            block["values"].update({"current_ratio": 2.5 if period == "2026-06-30" else 2.0,
+                                    "quick_ratio": 2.0, "cash_ratio": 120.0})
+    return payload
+
+
+def _base_payload() -> dict:
     series = lambda start, end: [(day, start + (end - start) * i / 241) for i, day in enumerate(DAYS)]
     edb = lambda label, start, end: {"label": label, "unit": "元/吨", "points": series(start, end),
                                      "dropped_non_trading_rows": 0, "source": {"query": "synthetic"}}

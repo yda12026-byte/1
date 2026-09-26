@@ -42,9 +42,10 @@ EXECUTABLE_FIELDS = {
     "profit_cash_ratio": ("f021", "f022", "f024"),
 }
 # Dimensions answered from the fixed product snapshot (decision 0016).
-DIMENSION_EXECUTABLE = ("financial_trend", "valuation", "market", "industry")
-DIMENSION_FIELD_IDS = ("f016", "f018", "f025", "f026", "f028", "f034", "f035", "f036", "f037", "f038", "f039",
-                       "f040", "f042", "f044", "f045", "f046", "f047", "f049", "f050", "f051", "f052", "f053", "f054")
+DIMENSION_EXECUTABLE = ("operating_quality", "financial_trend", "valuation", "market", "industry", "risk")
+DIMENSION_FIELD_IDS = ("f004", "f012", "f013", "f014", "f016", "f018", "f019", "f025", "f026", "f027", "f028", "f030",
+                       "f034", "f035", "f036", "f037", "f038", "f039", "f040", "f042", "f044", "f045", "f046", "f047",
+                       "f049", "f050", "f051", "f052", "f053", "f054", "f063", "f065", "f069", "f072")
 COVERED_YEARS = ("2025", "2026")
 IMPLEMENTED_FIELD_IDS = frozenset(SPECIAL_FIELD_IDS + DIMENSION_FIELD_IDS)
 IMPLEMENTED_LABELS = {

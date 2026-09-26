@@ -52,7 +52,7 @@
       "candidate_status": "部分可用",
       "review_note": "分项占比已返回，报告期和分母仍需核对。",
       "kind": "composite",
-      "product_state": "pending"
+      "product_state": "implemented"
     },
     {
       "id": "f005",
@@ -166,7 +166,7 @@
       "candidate_status": "部分可用",
       "review_note": "iFinD 已返回投资收益；“贡献”分母和报告期尚未确定。",
       "kind": "composite",
-      "product_state": "pending"
+      "product_state": "implemented"
     },
     {
       "id": "f013",
@@ -179,7 +179,7 @@
       "candidate_status": "部分可用",
       "review_note": "2025 年末有返回；产品/行业两组字段单位不一致，需逐列校验并对照年报原文。",
       "kind": "source",
-      "product_state": "pending"
+      "product_state": "implemented"
     },
     {
       "id": "f014",
@@ -192,7 +192,7 @@
       "candidate_status": "部分可用",
       "review_note": "年报片段涉及锂精矿产量；整组产销、均价、单位成本尚未同口径取得。",
       "kind": "composite",
-      "product_state": "pending"
+      "product_state": "implemented"
     },
     {
       "id": "f015",
@@ -257,7 +257,7 @@
       "candidate_status": "已取值",
       "review_note": "与归母净利润并列，核对同一报告期。",
       "kind": "source",
-      "product_state": "pending"
+      "product_state": "implemented"
     },
     {
       "id": "f020",
@@ -369,9 +369,9 @@
         "fuyao"
       ],
       "candidate_status": "可计算",
-      "review_note": "2026-09-26 核实：扶摇 `total_debt` = 总资产 − 所有者权益，是负债合计而非有息债务，不能据此称净现金；产品只展示“货币资金减负债合计”（决策 0016），本项仍待有息债务口径。",
+      "review_note": "2026-09-26 核实：扶摇 `total_debt` = 总资产 − 所有者权益，是负债合计而非有息债务，不能据此称净现金；产品改用官方半年报五项有息债务计算净现金（决策 0018）。",
       "kind": "computed",
-      "product_state": "pending",
+      "product_state": "implemented",
       "formula_id": "cash_minus_total_debt",
       "input_fields": [
         "cash",
@@ -416,7 +416,7 @@
       "candidate_status": "已取值",
       "review_note": "锂价变化下关注存货跌价，存货金额不能直接推断减值。",
       "kind": "composite",
-      "product_state": "pending"
+      "product_state": "implemented"
     },
     {
       "id": "f031",
@@ -647,7 +647,7 @@
         "price_series"
       ],
       "candidate_status": "部分可用",
-      "review_note": "已实现月度复合比较，但 2026-05 行业窗口返回算术平均加权、其余月份为总市值加权，产品标为冲突、不输出相对表现（决策 0016）。",
+      "review_note": "月度复合比较已实现；2026-05 以显式总市值加权重新查询后十二个月口径一致（决策 0018）。",
       "kind": "source",
       "product_state": "implemented"
     },
@@ -859,7 +859,7 @@
       "candidate_status": "已取值",
       "review_note": "与短期债务期限结构配合，不能单独判断偿债能力。",
       "kind": "source",
-      "product_state": "pending"
+      "product_state": "implemented"
     },
     {
       "id": "f064",
@@ -885,7 +885,7 @@
       "candidate_status": "可计算",
       "review_note": "总债务范围与受限资金需核实。",
       "kind": "computed",
-      "product_state": "pending",
+      "product_state": "implemented",
       "formula_id": "cash_div_total_debt",
       "input_fields": [
         "cash",
@@ -949,7 +949,7 @@
       "candidate_status": "部分可用",
       "review_note": "已返回准备及损失字段；请求日期与实际指标参数的报告期需核对，并查财报附注。",
       "kind": "composite",
-      "product_state": "pending"
+      "product_state": "implemented"
     },
     {
       "id": "f070",
@@ -988,7 +988,7 @@
       "candidate_status": "部分可用",
       "review_note": "项目风险片段和现金支出可查；综合压力判断还需原公告、同口径现金流和债务信息。",
       "kind": "source",
-      "product_state": "pending"
+      "product_state": "implemented"
     }
   ]
 }

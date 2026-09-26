@@ -26,7 +26,8 @@ STEMS = {SUBJECT: "stock", **{code: stem for code, (stem, _) in PEERS.items()}}
 WINDOW = {"start": "2025-08-31", "end": "2026-08-31"}
 SHANGHAI = timezone(timedelta(hours=8))
 INDICATOR_IDS = ("calculate_operating_income_yoy_growth_ratio", "calculate_parent_holder_net_profit_yoy_growth_ratio",
-                 "sale_gross_margin", "index_weighted_avg_roe", "assets_debt_ratio", "inventory_turnover_ratio")
+                 "sale_gross_margin", "index_weighted_avg_roe", "assets_debt_ratio", "inventory_turnover_ratio",
+                 "current_ratio", "quick_ratio", "cash_ratio")
 STATEMENT_FIELDS = {
     "income": ("operating_income", "net_profit", "parent_holder_net_profit"),
     "cash_flow": ("act_cash_flow_net", "pay_fixed_assets_etc_cash"),
@@ -62,6 +63,12 @@ class RawReader:
             raise ValueError(f"Fuyao business error in {name}")
         data = body["data"]
         return data.get("item", data) if isinstance(data, dict) and "item" in data else data
+
+    def local_json(self, name: str):
+        """Manual extraction files (not API responses): fingerprint and parse."""
+        data = (self.raw_dir / name).read_bytes()
+        self.used[name] = hashlib.sha256(data).hexdigest()[:16]
+        return json.loads(data)
 
     def ifind(self, name: str) -> tuple[dict, dict]:
         document = self.load(name)
@@ -207,13 +214,26 @@ def _sector(reader: RawReader, calendar: set[str]) -> dict:
     windows, files, constituents = [], [], {}
     for month in _months():
         name = f"ifind_sector_{month}.json"
+        supplement = f"ifind_sector_{month}_capweighted.json"
+        if (reader.raw_dir / supplement).exists():  # re-queried with explicit cap weighting (2026-05)
+            _, cap = reader.ifind(supplement)
+            cap_table = _tables(cap["answer"])[0][0]
+            cap_key = next(key for key in cap_table if "区间涨跌幅" in key)
+            files.append(supplement)
+        else:
+            cap_table = None
         files.append(name)
         params, data = reader.ifind(name)
         span = re.findall(r"(\d{4}-\d{2}-\d{2})", params["query"])
         tables = _tables(data["answer"])
         header_key = next(key for key in tables[0][0] if "区间涨跌幅" in key)
-        windows.append({"start": span[0], "end": span[1], "return_pct": float(tables[0][0][header_key]),
-                        "weighting": "总市值加权平均" if "总市值加权" in header_key else "算术平均" if "算术平均" in header_key else header_key})
+        if cap_table is not None:
+            header_key, row = cap_key, cap_table
+        else:
+            row = tables[0][0]
+        windows.append({"start": span[0], "end": span[1], "return_pct": float(row[header_key]),
+                        "weighting": "总市值加权平均" if "总市值加权" in header_key else "算术平均" if "算术平均" in header_key else header_key,
+                        "raw_file": supplement if cap_table is not None else name})
         for row in tables[1]:
             day = _ymd(row["日期"])
             if day in calendar:
@@ -274,6 +294,17 @@ def _clues(reader: RawReader) -> dict:
                        "raw_files": "ifind_notices_YYYY_MM.json / ifind_news_YYYY_MM.json"}}
 
 
+def _official_h1(reader: RawReader) -> dict:
+    items = reader.local_json("official_extract_h1.json")
+    checks = {(row["period_end"], row["item"]): row["comparison"]
+              for row in reader.local_json("official_extract_crosscheck.json")}
+    for item in items:
+        item["crosscheck"] = checks.get((item["period_end"], item["item"]))
+    return {"items": items, "source": {"provider": "天齐锂业官方半年报（人工摘录）",
+                                       "raw_files": ["official_extract_h1.json", "official_extract_crosscheck.json"],
+                                       "method": "逐项摘录 PDF 页码与表名；存货、借款、扣非、投资收益与 iFinD 交叉核对"}}
+
+
 def build_product_snapshot(raw_dir: Path, *, created_at: str | None = None) -> dict:
     reader = RawReader(raw_dir)
     daily = {code: _daily(reader, code) for code in NAMES}
@@ -303,6 +334,7 @@ def build_product_snapshot(raw_dir: Path, *, created_at: str | None = None) -> d
             "futures": _series(reader, "lithium_futures", calendar, "碳酸锂期货活跃合约收盘价（广期所）", "元/吨"),
         },
         "clues": _clues(reader),
+        "official_h1": _official_h1(reader),
     }
     payload["raw_manifest"] = dict(sorted(reader.used.items()))
     return payload

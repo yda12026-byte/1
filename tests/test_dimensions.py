@@ -25,7 +25,7 @@ def run(dimension: str, payload: dict | None = None):
 
 class DimensionTests(unittest.TestCase):
     def test_every_dimension_validates_with_digit_free_anchors_and_traceable_inputs(self):
-        for dimension in ("financial_trend", "valuation", "market", "industry"):
+        for dimension in ("operating_quality", "financial_trend", "valuation", "market", "industry", "risk"):
             result, evidence, conclusions = run(dimension)
             self.assertTrue(conclusions, dimension)
             for conclusion in conclusions.values():
@@ -77,9 +77,10 @@ class DimensionTests(unittest.TestCase):
         self.assertEqual(evidence["cash_to_profit_ratio:2026-06-30"].value, "0.50")
         self.assertEqual(conclusions["cash_conversion"].assessment, "mixed")
         self.assertEqual(evidence["fcf_approx:2026-06-30"].value, "20.0000")
-        gap = evidence["cash_minus_liabilities:2026-06-30"]
-        self.assertEqual(gap.value, "-50.0000")
-        self.assertIn("不是净现金", gap.calculation["formula_text"])
+        self.assertEqual(evidence["interest_bearing_debt:2026-06-30"].value, "70.0000")  # 10 + 5 + 50 + 0 + 5
+        self.assertEqual(evidence["net_cash:2026-06-30"].value, "-20.0000")  # cash 50 − debt 70
+        self.assertEqual(evidence["inventory_change:2026-06-30"].value, "20.00")
+        self.assertEqual(evidence["deducted_net_profit_yoy:2026-06-30"].value, "322.22")
         self.assertEqual(conclusions["balance_sheet"].assessment, "positive")
 
     def test_valuation_percentile_peer_median_and_negative_multiple(self):
@@ -168,15 +169,51 @@ class DimensionTests(unittest.TestCase):
             if mode == "fail":
                 self.assertEqual(conclusions[0].validation_failures, ["llm_unavailable"])
 
+    def test_operating_quality_from_official_extracts(self):
+        _, evidence, conclusions = run("operating_quality")
+        self.assertEqual(evidence["segment_share_1:2026-06-30"].value, "60.00")
+        self.assertEqual(conclusions["segment_structure"].required_anchor, "锂化合物及衍生品收入占比较高，锂矿毛利率较高")
+        self.assertEqual(conclusions["segment_margin"].assessment, "positive")
+        self.assertEqual(evidence["investment_income_share:2026-06-30"].value, "30.00")
+        self.assertEqual(conclusions["investment_income"].required_anchor, "投资收益占同期归母净利润的比重较大")
+        self.assertEqual(evidence["concentrate_output_yoy:2026-06-30"].value, "25.00")
+        self.assertEqual(evidence["undisclosed_0:002466.SZ:2026-06-30"].quality["status"], "missing")
+        self.assertIn("第 1 页", evidence["segment_revenue_0:002466.SZ:2026-06-30"].source["query_ref"])
+
+        payload = product_payload()
+        row = next(r for r in payload["official_h1"]["items"] if r["item"] == "存货" and r["period_end"] == "2026-06-30")
+        row["crosscheck"] = "不一致（差 5%）"
+        _, evidence, _ = run("financial_trend", payload)
+        self.assertEqual(evidence["inventory:002466.SZ:2026-06-30"].quality["status"], "conflict")
+        self.assertEqual(evidence["inventory_change:2026-06-30"].quality["status"], "missing")
+
+    def test_risk_dimension(self):
+        _, evidence, conclusions = run("risk")
+        self.assertEqual(conclusions["liquidity"].required_anchor, "流动比率较上年同期上升")
+        self.assertEqual(evidence["cash_cover_debt:2026-06-30"].value, "0.71")
+        self.assertEqual(conclusions["debt_cover"].assessment, "negative")
+        self.assertEqual(evidence["inventory_reserve_change:2026-06-30"].value, "-75.00")
+        self.assertEqual(evidence["capex_to_ocf:2026-06-30"].value, "0.50")
+        self.assertEqual(evidence["project_1:002466.SZ:2026-06-30"].value, "建设中")
+
+        payload = product_payload()
+        payload["official_h1"]["items"] = [r for r in payload["official_h1"]["items"] if r["item"] != "长期借款"]
+        _, evidence, conclusions = run("risk", payload)
+        self.assertEqual(evidence["interest_bearing_debt:2026-06-30"].quality["status"], "missing")
+        self.assertEqual(conclusions["debt_cover"].type, "unknown")
+
     def test_routing_runs_implemented_dimensions_and_keeps_uncovered_years_planned(self):
         self.assertEqual(route_question("估值如何？")["runnable_dimensions"], ["valuation"])
         overview = route_question("全面诊断一下")
         self.assertEqual(overview["execution_status"], "partial")
-        self.assertEqual(set(overview["runnable_dimensions"]), {"financial_trend", "valuation", "market", "industry"})
+        self.assertEqual(set(overview["runnable_dimensions"]),
+                         {"operating_quality", "financial_trend", "valuation", "market", "industry", "risk"})
         self.assertEqual(route_question("2024年净利润同比增长多少？")["execution_status"], "planned")
         revenue = route_question("2026年上半年营收同比增长多少？")
-        self.assertEqual((revenue["execution_status"], revenue["runnable_dimensions"]), ("partial", ["financial_trend"]))
-        self.assertEqual(route_question("主要风险有哪些？")["execution_status"], "planned")
+        self.assertEqual((revenue["execution_status"], revenue["runnable_dimensions"]),
+                         ("implemented", ["operating_quality", "financial_trend"]))
+        self.assertEqual(route_question("主要风险有哪些？")["execution_status"], "implemented")
+        self.assertEqual(route_question("近期有哪些公告？")["execution_status"], "planned")
 
     def test_overall_summary_is_validated_and_falls_back_to_program_anchors(self):
         payload = {**product_payload(), "snapshot_id": "synthetic"}
@@ -186,7 +223,7 @@ class DimensionTests(unittest.TestCase):
         for run in runs:
             known = [c for c in run.conclusions if c.type != "unknown"]
             self.assertIn(known[0].required_anchor, summary["text"])
-        self.assertIn("经营质量", summary["text"])  # uncovered dimensions are named, not silently dropped
+        self.assertIn("重要事件", summary["text"])  # uncovered dimensions are named, not silently dropped
         self.assertFalse(any(ch.isdigit() for ch in summary["text"]))
 
         class SummaryLLM:
