@@ -97,3 +97,8 @@
 - 快照块 `official_h1.items`：每项含 `item`、`period_end`、`value`、`unit`（元、%、万吨、文本）、`pdf`、`page`、`table_or_section`、`note` 与 `crosscheck`（iFinD 交叉核对结论）。来源文件 `official_extract_h1.json`、`official_extract_crosscheck.json` 在 Git 忽略目录，快照记录其摘要。
 - 证据来源显示为“天齐锂业官方半年报（人工摘录）”，查询定位为页码与表名；金额换算为亿元。空值为 `missing` 并保留“报告未披露”原因；交叉核对含“不一致”时为 `conflict`。文本项（在建项目进度）以原文短句作为证据值。
 - 有息债务 = 短期借款 + 一年内到期的非流动负债 + 长期借款 + 应付债券 + 租赁负债；净现金 = 货币资金（扶摇）− 有息债务。任一项缺失则合计与净现金为 `missing`。
+
+## 结论对比表（决策 0021）
+
+- `Conclusion.table`（可选）：`{"columns": [列名…], "rows": [{"label": 指标名, "cells": [evidence_id 或 null, …]}]}`，单元格顺序与列一致。每个非空单元格必须是同一运行对象中的证据 ID，由 `validate_run` 校验，表格不引入新数值。
+- 当前用于三处同行结论：估值（天齐、三家同行、同行中位数 × 市盈率 TTM / 市净率）、同行财务（四家 × 毛利率 / 加权 ROE / 资产负债率 / 营收同比）、同行股价（四家 × 观察区间涨跌幅）。页面显示保留两位小数，证据保存原值。

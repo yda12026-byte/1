@@ -20,7 +20,7 @@ CANNOT_SAY = [
     CannotSay("NO_LIVE_DATA", "不能把固定快照称为实时、最新或今天的数据", "考试产品只展示固定快照"),
 ]
 
-PERIOD_NOTE = "按 2025 年年报口径；2026 年半年报的利润与现金流对比，可问“天齐锂业近一年财务趋势如何？”"
+PERIOD_NOTE = "按 2025 年年报口径；2026 年半年报的利润与现金流对比，可问“天齐锂业近一年的财务趋势如何？”"
 
 CLAIMS = {
     "profit_positive_cash_negative": ("inference", "mixed", "净利润为正而经营活动现金流净额为负",

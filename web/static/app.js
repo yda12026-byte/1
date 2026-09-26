@@ -67,7 +67,7 @@ function renderEvidence(item, byId, runId) {
   const summary = el('summary');
   const name = addText(summary, 'span', 'evidence-name', evidenceName(item));
   if (item.kind === 'computed') addText(name, 'span', 'kind-badge', '计算');
-  addText(summary, 'span', 'evidence-value', item.value === null ? '—' : `${item.value} ${item.unit || ''}`.trim());
+  addText(summary, 'span', 'evidence-value', item.value === null ? '—' : tableValue(item));
   addText(summary, 'span', `evidence-state state-${status}`, labels[status] || status);
   details.append(summary);
 
@@ -106,6 +106,35 @@ function renderEvidence(item, byId, runId) {
   tech.append(techGrid); body.append(tech);
   details.append(body); return details;
 }
+function tableValue(item) {
+  if (!item) return '—';
+  if (item.value === null) return labels[item.quality.status] || '—';
+  const number = Number(item.value);
+  const text = Number.isFinite(number) && /\.\d{3,}/.test(item.value) ? number.toFixed(2) : item.value;
+  return `${text}${item.unit ? ' ' + item.unit : ''}`;
+}
+function renderTable(table, byId, runId) {
+  const wrap = el('div', 'compare-wrap');
+  const t = el('table', 'compare-table');
+  const head = el('tr'); addText(head, 'th', '', '指标');
+  table.columns.forEach((name, i) => addText(head, 'th', i === 0 ? 'own' : '', name));
+  const thead = el('thead'); thead.append(head); t.append(thead);
+  const body = el('tbody');
+  for (const row of table.rows) {
+    const tr = el('tr'); addText(tr, 'th', '', row.label);
+    row.cells.forEach((id, i) => {
+      const td = el('td', i === 0 ? 'own' : '');
+      const item = id ? byId[id] : null;
+      if (item) { const b = addText(td, 'button', 'cell-link', tableValue(item)); b.type = 'button'; b.addEventListener('click', () => jumpTo(runId, id)); }
+      else td.textContent = '—';
+      tr.append(td);
+    });
+    body.append(tr);
+  }
+  t.append(body); wrap.append(t);
+  addText(wrap, 'div', 'compare-note', '点击数值可定位到对应证据；表内数值保留两位小数，证据中为原值。');
+  return wrap;
+}
 function renderConclusion(conclusion, byId, runId, snapshot) {
   const card = el('div', 'answer'), header = el('div', 'answer-header');
   addText(header, 'span', `tag ${conclusion.assessment}`, labels[conclusion.assessment] || conclusion.assessment);
@@ -113,18 +142,23 @@ function renderConclusion(conclusion, byId, runId, snapshot) {
   addText(header, 'span', `tag tier-${conclusion.priority.tier}`, labels[conclusion.priority.tier] || conclusion.priority.tier);
   card.append(header);
   addText(card, 'p', 'answer-text', conclusion.text);
-  if (conclusion.highlights?.length) {
+  if (conclusion.highlights?.length && !conclusion.table) {
     const chips = el('div', 'figures');
     for (const id of conclusion.highlights) {
       const item = byId[id]; if (!item) continue;
       const chip = el('button', `figure state-${item.quality.status}`); chip.type = 'button';
       addText(chip, 'span', 'figure-label', evidenceName(item));
-      addText(chip, 'strong', '', item.value === null ? (labels[item.quality.status] || '—') : `${item.value} ${item.unit || ''}`);
+      addText(chip, 'strong', '', tableValue(item));
       chip.addEventListener('click', () => jumpTo(runId, id));
       chips.append(chip);
     }
     card.append(chips);
   }
+  if (conclusion.table) card.append(renderTable(conclusion.table, byId, runId));
+  const basis = el('div', 'priority-basis');
+  addText(basis, 'span', `tag tier-${conclusion.priority.tier}`, labels[conclusion.priority.tier] || conclusion.priority.tier);
+  addText(basis, 'span', '', `优先级依据：${conclusion.priority.reason}`);
+  card.append(basis);
   addText(card, 'div', 'answer-meta', `固定快照 · 下载于 ${beijing(snapshot.created_at)} · ${conclusion.validation === 'passed' ? '受限模型文案已校验' : '程序回退文案'}`);
   if (conclusion.validation_failures?.length) addText(card, 'div', 'answer-note', `模型文案回退原因：${conclusion.validation_failures.join('、')}`);
   const list = el('div', 'evidence-list');
@@ -177,6 +211,47 @@ function renderClues(clues) {
   }
   return makeCollapsible(card, header, `公告与新闻待核线索（${clues.total.notices} 条公告、${clues.total.news} 条新闻）`);
 }
+const markSymbols = { positive: '↑', negative: '↓', mixed: '⇅', neutral: '·', unknown: '?' };
+function renderOverview(runs) {
+  const grid = el('div', 'dim-overview');
+  for (const run of runs) {
+    const tile = el('button', `dim-tile dim-${run.route.dimension}`); tile.type = 'button';
+    addText(tile, 'span', 'dim-tile-name', run.route.dimension_label);
+    const marks = el('span', 'dim-tile-marks');
+    for (const c of run.conclusions) {
+      const mark = addText(marks, 'span', `mark ${c.assessment}`, markSymbols[c.assessment] || '·');
+      mark.title = `${labels[c.assessment] || c.assessment}：${c.required_anchor}`;
+    }
+    tile.append(marks);
+    const lead = run.conclusions.find(c => c.type !== 'unknown') || run.conclusions[0];
+    if (lead) addText(tile, 'span', 'dim-tile-brief', lead.required_anchor);
+    tile.addEventListener('click', () => {
+      const section = document.getElementById(`sec-${run.id}`);
+      if (!section) return;
+      section.querySelectorAll('.answer.collapsed').forEach(card => setCollapsed(card, false));
+      section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    grid.append(tile);
+  }
+  return grid;
+}
+function renderProgress(question) {
+  const card = el('div', 'progress-card');
+  const head = el('div', 'progress-head');
+  head.append(el('span', 'spinner'));
+  addText(head, 'span', '', '正在诊断');
+  const time = addText(head, 'span', 'progress-time', '0 秒');
+  card.append(head);
+  const steps = el('ol', 'progress-steps');
+  for (const step of ['识别问题与维度', '读取固定快照', '程序计算指标与证据', '模型解读并校验']) addText(steps, 'li', '', step);
+  card.append(steps);
+  const broad = /全面|诊断|怎么样|整体/.test(question);
+  addText(card, 'div', 'progress-note', broad ? '全面诊断涉及六个维度，通常需要十几秒。' : '单维度问题通常需要几秒到十几秒。');
+  const node = addMessage(card);
+  const start = Date.now();
+  const timer = setInterval(() => { time.textContent = `${Math.round((Date.now() - start) / 1000)} 秒`; }, 1000);
+  return { remove() { clearInterval(timer); node.remove(); } };
+}
 function renderRuns(payload) {
   const wrap = el('div', 'runs');
   const runs = payload.runs || [payload.run];
@@ -194,15 +269,21 @@ function renderRuns(payload) {
     lead.append(tools);
     wrap.append(lead);
   }
+  if (runs.length > 1) {
+    wrap.append(renderOverview(runs));
+    addText(wrap, 'div', 'overview-legend', '维度概览　↑ 正面　↓ 负面　⇅ 矛盾　· 中性　? 未知　点击方块跳到对应维度');
+  }
   for (const run of runs) {
     const byId = Object.fromEntries(run.evidence.map(item => [item.id, item]));
     const section = el('section', `run-section dim-${run.route.dimension || 'financial_trend'}`);
+    section.id = `sec-${run.id}`;
     if (runs.length > 1 || run.route.dimension_label) addText(section, 'h3', 'run-title', run.route.dimension_label || '财务诊断');
     for (const conclusion of run.conclusions) section.append(renderConclusion(conclusion, byId, run.id, payload.snapshot));
     wrap.append(section);
   }
   if (payload.clues) { addText(wrap, 'h3', 'run-title', '重要事件'); wrap.append(renderClues(payload.clues)); }
   if (payload.gaps?.length) { addText(wrap, 'h3', 'run-title', '尚未接入的维度'); wrap.append(renderGaps(payload.gaps, '以下维度的优先字段尚未接入，仅列证据缺口，不构成诊断。')); }
+  if (runs.length > 1) wrap.querySelectorAll('.answer').forEach(card => card.querySelector('.collapse-btn') && setCollapsed(card, true));
   addMessage(wrap);
 }
 function renderPlanned(payload) {
@@ -226,8 +307,9 @@ function renderSuggestions(payload) {
 }
 async function submitQuestion(question) {
   if (!question.trim() || send.disabled) return;
-  addMessage(question, 'user'); input.value = ''; send.disabled = true;
-  const pending = addMessage('正在核对路由、固定快照并计算证据…');
+  const asked = addMessage(question, 'user'); input.value = ''; send.disabled = true;
+  document.querySelector('.composer-wrap')?.classList.add('compact');
+  const pending = renderProgress(question);
   try {
     const response = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question, context }) });
     const payload = await response.json(); pending.remove();
@@ -237,7 +319,7 @@ async function submitQuestion(question) {
     else if (payload.suggestions?.length) renderSuggestions(payload);
     else addMessage(payload.message || '当前无法完成诊断。');
   } catch (_) { pending.remove(); context = null; addMessage('服务连接失败，请稍后重试。'); }
-  finally { send.disabled = false; input.focus(); scrollDown(); }
+  finally { send.disabled = false; input.focus({ preventScroll: true }); asked.scrollIntoView({ block: 'start' }); }
 }
 form.addEventListener('submit', event => { event.preventDefault(); submitQuestion(input.value.trim()); });
 input.addEventListener('keydown', event => { if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) { event.preventDefault(); form.requestSubmit(); } });

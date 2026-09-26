@@ -63,16 +63,22 @@ def _summary_basis(runs: list[DiagnosisRun], route: dict) -> dict:
             {"anchor": c.required_anchor, "type": c.type, "assessment": c.assessment, "priority": c.priority["tier"]}
             for c in run.conclusions]})
     not_covered = [DIMENSIONS[d] for d in route.get("dimensions", []) if d not in route.get("runnable_dimensions", [])]
-    basis = {"items": items, "must_include": must_include}
+    basis = {"items": items, "must_include": must_include, "max_chars": 200 + 40 * len(must_include)}
     return {**basis, **({"pending": pending} if pending else {}), **({"not_covered": not_covered} if not_covered else {})}
 
 
+def summary_limit(basis: dict) -> int:
+    """More dimensions need room for more mandatory anchors."""
+    return 200 + 40 * len(basis["must_include"])
+
+
 def fallback_summary(runs: list[DiagnosisRun], basis: dict) -> str:
+    # One lead conclusion per dimension; details live in the overview strip and cards.
     parts = []
     for run in runs:
         anchors = [c.required_anchor for c in run.conclusions if c.type != "unknown"]
         if anchors:
-            parts.append(f"{run.route.get('dimension_label')}方面，{'，'.join(anchors)}")
+            parts.append(f"{run.route.get('dimension_label')}方面，{anchors[0]}")
     text = ("综合来看：" + "；".join(parts) + "。") if parts else "现有证据不足以形成总体解读。"
     if basis.get("pending"):
         text += f"尚待核实：{'；'.join(basis['pending'])}。"
@@ -85,7 +91,7 @@ def validate_summary(text: object, basis: dict) -> list[str]:
     if not isinstance(text, str) or not text.strip():
         return ["empty_text"]
     failures = []
-    if len(text) > 320:
+    if len(text) > summary_limit(basis):
         failures.append("too_long")
     if re.search(r"[0-9０-９%％]", text):
         failures.append("numbers_in_prose")

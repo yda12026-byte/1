@@ -88,7 +88,8 @@ class Run:
 
     def conclude(self, key: str, field_id: str, claim_type: str, assessment: str, anchor: str, text: str,
                  supports: list[Evidence], context: list[Evidence] = (), limitations: list[str] = (),
-                 highlights: list[Evidence] = (), cannot_say: list[CannotSay] | None = None) -> None:
+                 highlights: list[Evidence] = (), cannot_say: list[CannotSay] | None = None,
+                 table: dict | None = None) -> None:
         usable = [item for item in supports if item.quality["status"] == "valid"]
         if claim_type != "unknown" and len(usable) != len(supports):
             claim_type, assessment = "unknown", "unknown"
@@ -103,7 +104,7 @@ class Run:
             assessment=assessment, evidence_links=links,
             limitations=list(limitations) + ["仅代表固定快照（数据截止 2026-08-31），不代表实时状态"],
             cannot_say=list(cannot_say or BASE_CANNOT_SAY), required_anchor=anchor, fallback_text=text, text=text,
-            priority=priority_for_field(field_id), highlights=[item.id for item in highlights]))
+            priority=priority_for_field(field_id), highlights=[item.id for item in highlights], table=table))
 
     def finish(self, question: str, route: dict) -> DiagnosisRun:
         run = DiagnosisRun(id=self.run_id, subject=SUBJECT, question=question, route=route,
@@ -375,7 +376,12 @@ def valuation_run(snapshot: dict, question: str, route: dict, run_id: str) -> Di
         spec = ("fact", "neutral", anchor, f"同日比较，天齐锂业{anchor}。")
     else:
         spec = ("unknown", "unknown", "同行估值比较证据不足", "同行估值比较证据不足。")
+    peer_table = {"columns": [NAMES[code] for code in (SUBJECT, *snapshot["peer_group"])] + ["同行中位数"],
+                  "rows": [{"label": label, "cells": [own.id] + [f"peer_{key}:{code}:{peer['date']}" for code in snapshot["peer_group"]]
+                            + [medians[key].id]}
+                           for label, key, own in (("市盈率 PE(TTM)", "pe_ttm", items["pe_ttm"]), ("市净率 PB", "pb", items["pb_mrq"]))]}
     run.conclude("peer_position", "f040", *spec, supports=[medians["pe_ttm"], medians["pb"], items["pe_ttm"], items["pb_mrq"]],
+                 table=peer_table,
                  limitations=["同行组为资源＋锂盐冶炼一体化三家，业务结构仍有差异", "四家估值同源（iFinD），不与其他来源混算"],
                  highlights=[items["pe_ttm"], medians["pe_ttm"], items["pb_mrq"], medians["pb"]], cannot_say=VALUATION_CANNOT_SAY)
 
@@ -543,7 +549,8 @@ def industry_run(snapshot: dict, question: str, route: dict, run_id: str) -> Dia
 
     metrics = (("sale_gross_margin", "销售毛利率", "%"), ("index_weighted_avg_roe", "加权 ROE", "%"),
                ("assets_debt_ratio", "资产负债率", "%"), ("calculate_operating_income_yoy_growth_ratio", "营业收入同比", "%"))
-    words, highlights, supports = [], [], []
+    words, highlights, supports, rows = [], [], [], []
+    order = [SUBJECT, *snapshot["peer_group"]]
     for index_id, label, unit in metrics:
         items = {code: _indicator_evidence(run, code, PERIOD, index_id, f"peer_{index_id}", "f053", label, unit)
                  for code in snapshot["names"]}
@@ -553,6 +560,7 @@ def industry_run(snapshot: dict, question: str, route: dict, run_id: str) -> Dia
             words.append(f"{label}{_position_word(own, others)}")
         supports.extend(items.values())
         highlights.append(items[SUBJECT])
+        rows.append({"label": label, "cells": [items[code].id for code in order]})
     if len(words) == len(metrics):
         anchor = "，".join(words[:3])
         spec = ("fact", "neutral", f"与三家同行相比，{anchor}",
@@ -560,6 +568,7 @@ def industry_run(snapshot: dict, question: str, route: dict, run_id: str) -> Dia
     else:
         spec = ("unknown", "unknown", "同行财务比较证据不足", "同行财务比较证据不足。")
     run.conclude("peer_financials", "f053", *spec, supports=supports,
+                 table={"columns": [NAMES[code] for code in order], "rows": rows},
                  limitations=["四家指标均取扶摇同一接口、同一报告期，口径一致；ROE 为半年累计未年化",
                               "业务结构与资源自给率不同，排序不代表经营优劣"], highlights=highlights)
 
@@ -569,9 +578,11 @@ def industry_run(snapshot: dict, question: str, route: dict, run_id: str) -> Dia
         rets.append(_return(run, code, rows[0], rows[-1], f"{NAMES[code]}观察区间涨跌幅（前复权）", "f054"))
     own = D(rets[0].value)
     word = _position_word(own, [D(item.value) for item in rets[1:]])
+    returns_table = {"columns": [NAMES[code] for code in (SUBJECT, *snapshot["peer_group"])],
+                     "rows": [{"label": "观察区间涨跌幅（前复权）", "cells": [item.id for item in rets]}]}
     run.conclude("peer_returns", "f054", "fact", "neutral", f"观察区间股价涨跌幅在四家中{word}",
                  f"天齐锂业观察区间股价涨跌幅在四家中{word}（前复权，同区间）。", supports=rets,
-                 limitations=["同区间、同复权口径比较；历史表现不预示未来"], highlights=rets)
+                 limitations=["同区间、同复权口径比较；历史表现不预示未来"], highlights=rets, table=returns_table)
     return run.finish(question, route)
 
 

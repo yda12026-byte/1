@@ -51,6 +51,8 @@ class Conclusion:
     validation: Literal["fallback", "passed"] = "fallback"
     validation_failures: list[str] = field(default_factory=list)
     highlights: list[str] = field(default_factory=list)
+    # Optional side-by-side view (e.g. peers): every cell is an evidence ID of the same run, or None.
+    table: dict | None = None
 
 
 @dataclass
@@ -122,6 +124,9 @@ def validate_run(run: DiagnosisRun) -> DiagnosisRun:
             raise ValueError("conclusion lacks links, cannot_say, or anchor")
         if any(item not in by_id for item in conclusion.highlights):
             raise ValueError("conclusion highlight is not an evidence ID")
+        if conclusion.table is not None and any(cell is not None and cell not in by_id
+                                                for row in conclusion.table["rows"] for cell in row["cells"]):
+            raise ValueError("comparison table cell is not an evidence ID")
         for link in conclusion.evidence_links:
             if link.get("evidence_id") not in by_id or link.get("role") not in ("supports", "counters", "context"):
                 raise ValueError("invalid evidence link")

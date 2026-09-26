@@ -124,6 +124,22 @@ class DimensionTests(unittest.TestCase):
         self.assertTrue(conclusions["peer_financials"].required_anchor.startswith("与三家同行相比，销售毛利率最高，加权 ROE高于同行中位数，资产负债率最低"))
         self.assertEqual(evidence["lithium_carbonate_change"].value, "100.00")
 
+    def test_peer_comparisons_carry_tables_of_evidence(self):
+        from diagnosis.models import validate_run
+        result, evidence, conclusions = run("industry")
+        table = conclusions["peer_financials"].table
+        self.assertEqual(table["columns"], ["天齐锂业", "赣锋锂业", "中矿资源", "永兴材料"])
+        self.assertEqual([row["label"] for row in table["rows"]], ["销售毛利率", "加权 ROE", "资产负债率", "营业收入同比"])
+        self.assertEqual([evidence[cell].value for cell in table["rows"][0]["cells"]], ["60", "50", "40", "30"])
+        self.assertEqual(len(conclusions["peer_returns"].table["rows"][0]["cells"]), 4)
+        _, evidence_v, conclusions_v = run("valuation")
+        peer = conclusions_v["peer_position"].table
+        self.assertEqual(peer["columns"][-1], "同行中位数")
+        self.assertEqual(evidence_v[peer["rows"][0]["cells"][-1]].value, "30.00")
+        conclusions["peer_returns"].table["rows"][0]["cells"][1] = "missing-id"
+        with self.assertRaisesRegex(ValueError, "comparison table"):
+            validate_run(result)
+
     def test_product_snapshot_is_immutable_and_checksummed(self):
         path = ROOT / "data" / "cache" / f"test_product_{uuid4().hex}.json"
         try:
@@ -224,6 +240,10 @@ class DimensionTests(unittest.TestCase):
             known = [c for c in run.conclusions if c.type != "unknown"]
             self.assertIn(known[0].required_anchor, summary["text"])
         self.assertIn("重要事件", summary["text"])  # uncovered dimensions are named, not silently dropped
+        from diagnosis.pipeline import _summary_basis, summary_limit
+        basis = _summary_basis(runs, route)
+        self.assertEqual(summary_limit(basis), 200 + 40 * 6)
+        self.assertLessEqual(len(summary["text"]), summary_limit(basis))
         self.assertFalse(any(ch.isdigit() for ch in summary["text"]))
 
         class SummaryLLM:
