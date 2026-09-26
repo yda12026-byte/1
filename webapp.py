@@ -137,7 +137,11 @@ def create_app(*, snapshot_path: Path | None = None, product_snapshot_path: Path
 
     @app.get("/healthz")
     def healthz():
-        return jsonify({"status": "ok", "service": "diagnosis-web"})
+        # Stays 200 when snapshots are missing so the platform does not restart-loop; status is reported, paths are not.
+        product, _ = _product_state(product_path)
+        return jsonify({"status": "ok", "service": "diagnosis-web",
+                        "snapshots": {"profit_cash": _snapshot_state(path)["status"], "product": product["status"]},
+                        "llm_configured": llm is not None})
 
     @app.get("/api/bootstrap")
     def bootstrap():

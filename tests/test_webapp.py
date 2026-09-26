@@ -71,7 +71,8 @@ class WebAppTests(unittest.TestCase):
 
     def test_health_and_bootstrap_show_fixed_snapshot_time(self):
         client = self.client()
-        self.assertEqual(client.get("/healthz").get_json()["status"], "ok")
+        health = client.get("/healthz").get_json()
+        self.assertEqual((health["status"], health["snapshots"]), ("ok", {"profit_cash": "fixed", "product": "missing"}))
         data = client.get("/api/bootstrap").get_json()
         self.assertEqual(data["snapshot"]["status"], "fixed")
         self.assertEqual(data["snapshot"]["created_at"], CREATED_AT)
