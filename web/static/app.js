@@ -52,54 +52,71 @@ function timeText(time) {
   if (time.start) return `${time.start} 至 ${time.end}`;
   return '';
 }
+const primaryScope = ['period_basis', 'consolidation', 'adjust', 'numerator', 'denominator', 'weighting', 'filter'];
+function scopeText(scope) {
+  return primaryScope.filter(key => scope?.[key]).map(key => `${scopeNames[key]}：${basisNames[scope[key]] || scope[key]}`).join('；');
+}
+function jumpTo(runId, id) {
+  const target = document.getElementById(domId(runId, id));
+  if (target) { target.open = true; target.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+}
 function renderEvidence(item, byId, runId) {
-  const details = el('details', 'evidence'); details.id = domId(runId, item.id);
+  const status = item.quality.status;
+  const details = el('details', `evidence status-${status}`); details.id = domId(runId, item.id);
   const summary = el('summary');
-  addText(summary, 'span', '', `${evidenceName(item)}${item.kind === 'computed' ? '（计算）' : ''}`);
-  addText(summary, 'span', `evidence-state ${item.quality.status === 'valid' ? '' : 'bad'}`, labels[item.quality.status] || item.quality.status);
+  const name = addText(summary, 'span', 'evidence-name', evidenceName(item));
+  if (item.kind === 'computed') addText(name, 'span', 'kind-badge', '计算');
+  addText(summary, 'span', 'evidence-value', item.value === null ? '—' : `${item.value} ${item.unit || ''}`.trim());
+  addText(summary, 'span', `evidence-state state-${status}`, labels[status] || status);
   details.append(summary);
+
   const body = el('div', 'evidence-body'), grid = el('dl', 'evidence-grid');
   detailPair(grid, '数值', evidenceValue(item));
   detailPair(grid, '时间', timeText(item.time));
-  detailPair(grid, '快照下载', beijing(item.time?.fetched_at));
-  for (const [key, value] of Object.entries(item.scope || {})) detailPair(grid, scopeNames[key] || key, basisNames[value] || value);
-  detailPair(grid, '证据状态', labels[item.quality.status] || item.quality.status);
-  detailPair(grid, '状态原因', item.quality.reason);
-  detailPair(grid, '优先级', `${labels[item.priority.tier] || item.priority.tier} · ${item.priority.field_id} · ${item.priority.reason}`);
-  if (item.source) {
-    detailPair(grid, '来源', item.source.provider);
-    detailPair(grid, '接口 / 字段', `${item.source.endpoint} · ${item.source.field}`);
-    detailPair(grid, '查询定位', item.source.query_ref);
-  }
+  detailPair(grid, '口径', scopeText(item.scope));
+  body.append(grid);
+  if (status !== 'valid' && item.quality.reason) addText(body, 'div', `status-reason state-${status}`, `${labels[status] || status}：${item.quality.reason}`);
   if (item.calculation) {
-    const calc = item.calculation;
-    detailPair(grid, '计算公式', calc.formula_text || (calc.formula_id === 'operating_cash_flow_div_net_profit' ? '经营活动现金流净额 ÷ 净利润；净利润须大于零，结果保留两位小数' : calc.formula_id));
-    detailPair(grid, '公式版本', `${calc.formula_id} v${calc.formula_version}`);
-    if (calc.summary) detailPair(grid, '序列摘要', Object.entries(calc.summary).map(([k, v]) => `${{ min: '最低', max: '最高', median: '中位数', n: '样本数', unit: '单位' }[k] || k} ${v}`).join('；'));
-    addText(grid, 'dt', '', '输入证据');
-    const dd = el('dd');
+    const calc = item.calculation, box = el('div', 'calc-box');
+    addText(box, 'div', 'calc-label', '计算方法');
+    addText(box, 'div', 'calc-formula', calc.formula_text || (calc.formula_id === 'operating_cash_flow_div_net_profit' ? '经营活动现金流净额 ÷ 净利润；净利润须大于零，结果保留两位小数' : calc.formula_id));
+    if (calc.summary) addText(box, 'div', 'calc-summary', Object.entries(calc.summary).map(([k, v]) => `${{ min: '最低', max: '最高', median: '中位数', n: '样本数', unit: '单位' }[k] || k} ${v}`).join(' · '));
+    addText(box, 'div', 'calc-label', '输入证据（点击定位）');
+    const inputs = el('div', 'input-list');
     for (const id of calc.input_evidence_ids || []) {
       const input = byId[id];
-      const button = addText(dd, 'button', 'input-link', input ? `${evidenceName(input)}：${evidenceValue(input)}` : id);
-      button.type = 'button';
-      button.addEventListener('click', () => { const target = document.getElementById(domId(runId, id)); if (target) { target.open = true; target.scrollIntoView({ behavior: 'smooth', block: 'center' }); } });
+      const button = addText(inputs, 'button', 'input-link', input ? `${evidenceName(input)}：${evidenceValue(input)}` : id);
+      button.type = 'button'; button.addEventListener('click', () => jumpTo(runId, id));
     }
-    grid.append(dd);
+    box.append(inputs); body.append(box);
   }
-  body.append(grid); details.append(body); return details;
+  const tech = el('details', 'tech'); addText(tech, 'summary', '', '技术信息');
+  const techGrid = el('dl', 'evidence-grid tech-grid');
+  if (item.source) {
+    detailPair(techGrid, '来源', item.source.provider);
+    detailPair(techGrid, '接口 / 字段', `${item.source.endpoint} · ${item.source.field}`);
+    detailPair(techGrid, '查询定位', item.source.query_ref);
+  }
+  detailPair(techGrid, '快照下载', beijing(item.time?.fetched_at));
+  if (item.scope?.unit_conversion) detailPair(techGrid, '单位换算', item.scope.unit_conversion);
+  if (item.calculation) detailPair(techGrid, '公式编号', `${item.calculation.formula_id} · 版本 ${item.calculation.formula_version}`);
+  detailPair(techGrid, '展示优先级', `${labels[item.priority.tier] || item.priority.tier}（${item.priority.field_id}）：${item.priority.reason}`);
+  detailPair(techGrid, '优先级配置', item.priority.profile_version);
+  tech.append(techGrid); body.append(tech);
+  details.append(body); return details;
 }
 function renderConclusion(conclusion, byId, runId, snapshot) {
   const card = el('div', 'answer'), header = el('div', 'answer-header');
   addText(header, 'span', `tag ${conclusion.assessment}`, labels[conclusion.assessment] || conclusion.assessment);
   addText(header, 'span', 'tag type', labels[conclusion.type] || conclusion.type);
-  addText(header, 'span', 'tag priority', labels[conclusion.priority.tier] || conclusion.priority.tier);
+  addText(header, 'span', `tag tier-${conclusion.priority.tier}`, labels[conclusion.priority.tier] || conclusion.priority.tier);
   card.append(header);
   addText(card, 'p', 'answer-text', conclusion.text);
   if (conclusion.highlights?.length) {
     const chips = el('div', 'figures');
     for (const id of conclusion.highlights) {
       const item = byId[id]; if (!item) continue;
-      const chip = el('button', `figure ${item.quality.status === 'valid' ? '' : 'bad'}`); chip.type = 'button';
+      const chip = el('button', `figure state-${item.quality.status}`); chip.type = 'button';
       addText(chip, 'span', 'figure-label', evidenceName(item));
       addText(chip, 'strong', '', item.value === null ? (labels[item.quality.status] || '—') : `${item.value} ${item.unit || ''}`);
       chip.addEventListener('click', () => { const target = document.getElementById(domId(runId, id)); if (target) { target.open = true; target.scrollIntoView({ behavior: 'smooth', block: 'center' }); } });
@@ -151,8 +168,10 @@ function renderRuns(payload) {
   if (payload.resolved_question) addText(wrap, 'div', 'answer-note', `按受限追问解析为：${payload.resolved_question}`);
   for (const run of runs) {
     const byId = Object.fromEntries(run.evidence.map(item => [item.id, item]));
-    if (runs.length > 1 || run.route.dimension_label) addText(wrap, 'h3', 'run-title', run.route.dimension_label || '财务诊断');
-    for (const conclusion of run.conclusions) wrap.append(renderConclusion(conclusion, byId, run.id, payload.snapshot));
+    const section = el('section', `run-section dim-${run.route.dimension || 'financial_trend'}`);
+    if (runs.length > 1 || run.route.dimension_label) addText(section, 'h3', 'run-title', run.route.dimension_label || '财务诊断');
+    for (const conclusion of run.conclusions) section.append(renderConclusion(conclusion, byId, run.id, payload.snapshot));
+    wrap.append(section);
   }
   if (payload.clues) { addText(wrap, 'h3', 'run-title', '重要事件'); wrap.append(renderClues(payload.clues)); }
   if (payload.gaps?.length) { addText(wrap, 'h3', 'run-title', '尚未接入的维度'); wrap.append(renderGaps(payload.gaps, '经营质量、风险等维度的优先字段尚未核准，以下仅列证据缺口，不构成诊断。')); }
