@@ -58,7 +58,10 @@ def ms(day: date, *, end: bool = False) -> int:
 
 def jobs():
     start, end = ms(WINDOW_START), ms(WINDOW_END, end=True)
-    for symbol, stem in (("002466.SZ", "stock"), ("002460.SZ", "peer")):
+    # Formal peer group (decision 0013): 赣锋锂业 reuses the existing "peer" stem;
+    # 中矿资源 and 永兴材料 are added as new stems so existing files are untouched.
+    for symbol, stem in (("002466.SZ", "stock"), ("002460.SZ", "peer"),
+                          ("002738.SZ", "peer002738"), ("002756.SZ", "peer002756")):
         yield ("fuyao", f"{stem}_daily", "/api/a-share/prices/historical",
                {"thscode": symbol, "interval": "1d", "adjust": "forward", "start": start, "end": end})
         for statement, endpoint in (("income", "income-statements"), ("balance", "balance-sheets"),
@@ -80,7 +83,10 @@ def jobs():
         ("financial_2025_fy", "stock", "get_stock_financials", "天齐锂业002466.SZ 2025年12月31日的投资收益、分产品收入、分产品成本、分产品毛利率"),
         ("financial_2026_h1", "stock", "get_stock_financials", "天齐锂业002466.SZ 2026年6月30日的单季度归母净利润、扣非归母净利润、存货、资产减值损失"),
         ("peer_financial_2026_h1", "stock", "get_stock_financials", "赣锋锂业002460.SZ 2026年6月30日的营业收入、销售毛利率、ROE、资产负债率"),
+        ("peer002738_financial_2026_h1", "stock", "get_stock_financials", "中矿资源002738.SZ 2026年6月30日的营业收入、销售毛利率、ROE、资产负债率"),
+        ("peer002756_financial_2026_h1", "stock", "get_stock_financials", "永兴材料002756.SZ 2026年6月30日的营业收入、销售毛利率、ROE、资产负债率"),
         ("peer_valuation_cutoff", "stock", "get_stock_performance", "天齐锂业002466.SZ和赣锋锂业002460.SZ在2026年8月31日的市盈率TTM、市净率"),
+        ("peer_valuation_cutoff_group", "stock", "get_stock_performance", "天齐锂业002466.SZ、赣锋锂业002460.SZ、中矿资源002738.SZ、永兴材料002756.SZ在2026年8月31日的市盈率TTM、市净率"),
         ("stock_valuation_cutoff", "stock", "get_stock_performance", "天齐锂业002466.SZ在2026年8月31日的市盈率TTM、市盈率MRQ、市净率MRQ、市销率TTM、市现率TTM"),
         ("shareholders_cutoff", "stock", "get_stock_shareholders", "天齐锂业002466.SZ截至2026年8月31日的控股股东持股及股权质押比例"),
         ("events_cutoff", "stock", "get_stock_events", "天齐锂业002466.SZ在2025年8月31日至2026年8月31日的股权质押、限售股解禁及分红日期和数量"),

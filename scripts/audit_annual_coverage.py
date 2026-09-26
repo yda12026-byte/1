@@ -36,6 +36,7 @@ assign("spodumene_series", "f051 f070")
 assign("futures_series", "f052")
 assign("peer_financial", "f053")
 assign("peer_daily", "f054")
+assign("peer_valuation", "f040 f054")
 assign("notices", "f055 f056 f057 f058 f060 f061 f069 f071 f072")
 assign("shareholders", "f060 f068")
 assign("events", "f060 f061 f068")
@@ -73,8 +74,13 @@ def requirements() -> dict[str, list[str]]:
         "spodumene_series": series("spodumene"),
         "futures_series": series("lithium_futures"),
         "peer_financial": ["ifind_peer_financial_2026_h1.json", "fuyao_peer_income_quarters.json",
-                           "fuyao_peer_indicators_2026-2.json"],
-        "peer_daily": ["fuyao_peer_daily.json"],
+                           "fuyao_peer_indicators_2026-2.json",
+                           "ifind_peer002738_financial_2026_h1.json", "fuyao_peer002738_income_quarters.json",
+                           "fuyao_peer002738_indicators_2026-2.json",
+                           "ifind_peer002756_financial_2026_h1.json", "fuyao_peer002756_income_quarters.json",
+                           "fuyao_peer002756_indicators_2026-2.json"],
+        "peer_daily": ["fuyao_peer_daily.json", "fuyao_peer002738_daily.json", "fuyao_peer002756_daily.json"],
+        "peer_valuation": ["ifind_peer_valuation_cutoff_group.json"],
         "notices": ["ifind_notices_2025_08.json", "ifind_project_notices_2025_08.json"] +
                    series("notices") + series("project_notices"),
         "shareholders": ["ifind_shareholders_cutoff.json"],
