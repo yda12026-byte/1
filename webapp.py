@@ -106,6 +106,26 @@ def _gap_fields(route: dict, skip_dimensions: tuple[str, ...] = ()) -> list[dict
             and field["dimension"] not in skip_dimensions]
 
 
+SCOPE_TEXT = "本模型只基于截至 2026-08-31 的固定数据，对天齐锂业的经营质量、财务趋势、估值、行情特征、行业位置和风险六个维度做有证据的诊断，并列出公告与新闻检索线索"
+SUGGESTIONS = {
+    "买卖或持仓建议": ["天齐锂业全面诊断一下", "天齐锂业估值处于什么位置？", "天齐锂业有哪些主要风险？"],
+    "股价涨跌预测": ["天齐锂业全面诊断一下", "天齐锂业近一年股价表现和波动如何？", "锂价和同行比较情况如何？"],
+    "收益承诺": ["天齐锂业全面诊断一下", "天齐锂业有哪些主要风险？", "天齐锂业估值处于什么位置？"],
+    None: ["天齐锂业全面诊断一下", "天齐锂业近一年财务趋势如何？", "天齐锂业各业务的毛利率如何？"],
+}
+
+
+def _out_of_scope_payload(categories: list[str]) -> dict:
+    """Explain why a question is not answered and offer in-scope questions instead of a bare refusal."""
+    if categories:
+        message = f"您的提问涉及{'、'.join(categories)}，超出本模型能力范围。{SCOPE_TEXT}，不提供投资建议、涨跌预测或收益承诺。您可以试试下面的问题："
+    else:
+        message = f"暂时无法识别您的问题。{SCOPE_TEXT}。您可以试试下面的问题："
+    suggestions = list(dict.fromkeys(q for key in (categories or [None]) for q in SUGGESTIONS[key]))[:4]
+    return {"status": "unsupported_question", "reason": "out_of_scope" if categories else "unrecognized",
+            "categories": categories, "message": message, "suggestions": suggestions, "context": None}
+
+
 def _planned_payload(route: dict) -> dict:
     fields = _gap_fields(route)
     return {"status": "not_implemented", "message": "数据或计算待接入，当前不能生成金融结论。",
@@ -191,8 +211,7 @@ def create_app(*, snapshot_path: Path | None = None, product_snapshot_path: Path
             return jsonify({"status": "clarification_needed", "message": clarification, "context": None})
         route = route_question(resolved, llm)
         if route["execution_status"] == "unsupported":
-            return jsonify({"status": "unsupported_question", "message": "当前只提供受限财务诊断与证据缺口查询，请改用完整研究问题；不提供买卖或确定性涨跌建议。",
-                            "context": None})
+            return jsonify(_out_of_scope_payload(route.get("out_of_scope", [])))
         if route["execution_status"] in ("implemented", "partial") and route["intent"] not in EXECUTABLE_FIELDS:
             return dimension_payload(resolved, question, route)
         if route["execution_status"] == "planned":
@@ -211,7 +230,7 @@ def create_app(*, snapshot_path: Path | None = None, product_snapshot_path: Path
                             "message": "固定快照读取或校验失败；诊断暂不可用。", "context": None}), 503
         if not hasattr(result, "to_dict"):
             return jsonify(_planned_payload(route)) if result["status"] == "not_implemented" else jsonify(
-                {"status": "unsupported_question", "message": "当前问题无法安全映射到四类已实现诊断。", "context": None})
+                _out_of_scope_payload([]))
         return jsonify({"status": "ok", "run": result.to_dict(), "snapshot": state,
                         "context": {"intent": result.route["intent"]},
                         "resolved_question": resolved if resolved != question else None})

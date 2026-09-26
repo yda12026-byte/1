@@ -211,6 +211,19 @@ function renderPlanned(payload) {
   if (payload.clues) wrap.append(renderClues(payload.clues));
   addMessage(wrap);
 }
+function renderSuggestions(payload) {
+  const card = el('div', 'answer scope-card');
+  const header = el('div', 'answer-header');
+  addText(header, 'span', 'tag unknown', payload.reason === 'out_of_scope' ? '超出能力范围' : '未能识别');
+  card.append(header);
+  addText(card, 'p', 'answer-text', payload.message);
+  const box = el('div', 'examples suggestion-list');
+  for (const question of payload.suggestions) {
+    const button = addText(box, 'button', 'example', question); button.type = 'button';
+    button.addEventListener('click', () => submitQuestion(question));
+  }
+  card.append(box); addMessage(card);
+}
 async function submitQuestion(question) {
   if (!question.trim() || send.disabled) return;
   addMessage(question, 'user'); input.value = ''; send.disabled = true;
@@ -221,6 +234,7 @@ async function submitQuestion(question) {
     context = payload.context || null;
     if (payload.status === 'ok') renderRuns(payload);
     else if (payload.status === 'not_implemented') renderPlanned(payload);
+    else if (payload.suggestions?.length) renderSuggestions(payload);
     else addMessage(payload.message || '当前无法完成诊断。');
   } catch (_) { pending.remove(); context = null; addMessage('服务连接失败，请稍后重试。'); }
   finally { send.disabled = false; input.focus(); scrollDown(); }

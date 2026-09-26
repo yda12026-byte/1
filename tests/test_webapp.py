@@ -109,6 +109,7 @@ class WebAppTests(unittest.TestCase):
     def test_limited_followups_use_only_allowed_context(self):
         client = self.client()
         _, first = self.ask(client, EXAMPLES[0])
+        self.assertIn("2025 年年报口径", first["run"]["conclusions"][0]["limitations"][-1])
         _, follow = self.ask(client, "那现金流呢？", first["context"])
         self.assertEqual(follow["status"], "ok")
         self.assertEqual(follow["resolved_question"], EXAMPLES[1])
@@ -138,12 +139,28 @@ class WebAppTests(unittest.TestCase):
             self.assertTrue(data["missing_evidence"])
             self.assertIsNone(data["context"])
 
-    def test_trade_advice_and_prediction_are_refused(self):
+    def test_trade_advice_and_prediction_are_redirected_with_reason_and_suggestions(self):
         client = self.client()
-        for question in ("天齐锂业明天会涨吗？", "现在要不要买入天齐锂业？"):
+        cases = {"天齐锂业明天会涨吗？": ["股价涨跌预测"], "现在要不要买入天齐锂业？": ["买卖或持仓建议"],
+                 "目标价多少，值得买吗？": ["买卖或持仓建议", "股价涨跌预测"]}
+        for question, categories in cases.items():
             _, data = self.ask(client, question)
-            self.assertEqual(data["status"], "unsupported_question", question)
+            self.assertEqual((data["status"], data["reason"], data["categories"]),
+                             ("unsupported_question", "out_of_scope", categories), question)
+            self.assertTrue(data["message"].startswith(f"您的提问涉及{'、'.join(categories)}，超出本模型能力范围。"))
+            self.assertIn("六个维度", data["message"])
+            self.assertIn("天齐锂业全面诊断一下", data["suggestions"])
             self.assertNotIn("run", data)
+        _, data = self.ask(client, "你好")
+        self.assertEqual(data["reason"], "unrecognized")
+        self.assertTrue(data["message"].startswith("暂时无法识别您的问题。"))
+        self.assertTrue(data["suggestions"])
+
+    def test_suggested_questions_are_answerable(self):
+        from webapp import SUGGESTIONS
+        from diagnosis.routing import route_question
+        for question in {q for questions in SUGGESTIONS.values() for q in questions}:
+            self.assertIn(route_question(question)["execution_status"], ("implemented", "partial"), question)
 
     def test_missing_or_tampered_snapshot_is_unavailable(self):
         absent = self.client(CACHE / f"absent_{uuid4().hex}.json")

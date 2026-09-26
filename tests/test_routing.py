@@ -105,6 +105,18 @@ class RouterTests(unittest.TestCase):
         self.assertEqual(route_question("经营现金流在2024年为正吗？")["execution_status"], "planned")
         self.assertEqual(route_question("净利润为正，值得买吗？")["execution_status"], "unsupported")
 
+    def test_lithium_price_trend_is_industry_not_stock_market(self):
+        self.assertEqual(route_question("锂价走势如何？")["dimensions"], ["industry"])
+        self.assertEqual(route_question("碳酸锂价格涨跌如何？")["dimensions"], ["industry"])
+        self.assertEqual(set(route_question("锂价和股价走势如何？")["dimensions"]), {"market", "industry"})
+        self.assertEqual(route_question("股价走势如何？")["dimensions"], ["market"])
+
+    def test_out_of_scope_categories_are_reported(self):
+        route = route_question("目标价多少，要不要加仓？")
+        self.assertEqual(route["execution_status"], "unsupported")
+        self.assertEqual(route["out_of_scope"], ["买卖或持仓建议", "股价涨跌预测"])
+        self.assertEqual(route_question("估值如何？")["out_of_scope"], [])
+
     def test_llm_cannot_misroute_new_executable_intents(self):
         class WrongClassifier:
             def classify(self, question):

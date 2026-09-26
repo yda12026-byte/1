@@ -20,6 +20,8 @@ CANNOT_SAY = [
     CannotSay("NO_LIVE_DATA", "不能把固定快照称为实时、最新或今天的数据", "考试产品只展示固定快照"),
 ]
 
+PERIOD_NOTE = "按 2025 年年报口径；2026 年半年报的利润与现金流对比，可问“天齐锂业近一年财务趋势如何？”"
+
 CLAIMS = {
     "profit_positive_cash_negative": ("inference", "mixed", "净利润为正而经营活动现金流净额为负",
         "同一报告期内，净利润为正而经营活动现金流净额为负，两项指标方向背离。需要继续核查应收、存货和其他现金流项目。"),
@@ -75,7 +77,7 @@ def _single_field_conclusion(intent: str, item: Evidence, run_id: str) -> Conclu
         id=f"{intent}:{run_id}", dimension="financial_trend", claim_code=claim_code,
         type=claim_type, assessment=assessment,
         evidence_links=[{"evidence_id": item.id, "role": "supports" if number is not None else "context"}],
-        limitations=["仅回答单项指标的正负，不代表财务趋势或整体经营质量", "仅代表固定快照，不代表实时状态"],
+        limitations=["仅回答单项指标的正负，不代表财务趋势或整体经营质量", "仅代表固定快照，不代表实时状态", PERIOD_NOTE],
         cannot_say=CANNOT_SAY.copy(), required_anchor=anchor, fallback_text=fallback, text=fallback,
         priority=item.priority.copy(),
     )
@@ -100,7 +102,7 @@ def _ratio_conclusion(profit: Evidence, cash: Evidence, ratio: Evidence, run_id:
         type=claim_type, assessment="unknown",
         evidence_links=[{"evidence_id": item.id, "role": "supports" if usable else "context"}
                         for item in (profit, cash, ratio)],
-        limitations=["比值只在同一期、同口径且净利润为正时计算", "比值不代表整体盈利质量", "仅代表固定快照，不代表实时状态"],
+        limitations=["比值只在同一期、同口径且净利润为正时计算", "比值不代表整体盈利质量", "仅代表固定快照，不代表实时状态", PERIOD_NOTE],
         cannot_say=CANNOT_SAY.copy(), required_anchor=anchor, fallback_text=fallback, text=fallback,
         priority=ratio.priority.copy(),
     )
@@ -180,7 +182,7 @@ def build_profit_cash_run(question: str, net_profit: dict | None, operating_cash
         type=claim_type, assessment=assessment,
         evidence_links=[{"evidence_id": item.id, "role": "supports" if item.kind == "source" and item.quality["status"] == "valid" else "context"}
                         for item in (profit, cash, ratio)],
-        limitations=["仅比较同一期、同一累计/单季及合并口径的两个指标", "仅代表固定快照，不代表实时状态", "背离不能直接说明原因或财务造假"]
+        limitations=["仅比较同一期、同一累计/单季及合并口径的两个指标", "仅代表固定快照，不代表实时状态", "背离不能直接说明原因或财务造假", PERIOD_NOTE]
                     + (["当前输入缺失、无效或口径未对齐"] if not usable else []),
         cannot_say=CANNOT_SAY.copy(), required_anchor=anchor, fallback_text=fallback, text=fallback,
         priority=priority_for_field("f066"),

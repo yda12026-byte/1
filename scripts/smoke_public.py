@@ -82,7 +82,8 @@ def main() -> int:
     status, data, _ = call(base, "/api/chat", {"question": "为什么"})
     check("ambiguous follow-up asks to clarify", isinstance(data, dict) and data.get("status") == "clarification_needed")
     status, data, _ = call(base, "/api/chat", {"question": "天齐锂业明天会涨吗？要不要买入？"})
-    check("advice refused", isinstance(data, dict) and data.get("status") == "unsupported_question")
+    check("advice redirected with reason and suggestions", isinstance(data, dict) and data.get("reason") == "out_of_scope"
+          and str(data.get("message", "")).startswith("您的提问涉及") and bool(data.get("suggestions")))
     status, data, _ = call(base, "/api/chat", {"question": "天齐锂业近期有哪些公告？"})
     check("events show clues only", isinstance(data, dict) and data.get("status") == "not_implemented" and bool(data.get("clues")))
     status, data, _ = call(base, "/api/chat", {"question": "2024年净利润同比增长多少？"})

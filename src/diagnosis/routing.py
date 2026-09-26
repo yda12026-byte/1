@@ -13,13 +13,26 @@ KEYWORDS = {
     "financial_trend": ("财务", "利润", "盈利", "现金流", "收入", "营收", "ROE", "资产负债"),
     "valuation": ("估值", "市盈率", "市净率", "PE", "PB", "贵吗", "便宜吗"),
     "market": ("行情", "股价", "涨跌", "成交", "波动", "回撤", "走势"),
-    "industry": ("行业", "同行", "锂价", "碳酸锂", "竞争"),
+    "industry": ("行业", "同行", "锂价", "碳酸锂", "氢氧化锂", "锂精矿", "竞争"),
     "events": ("公告", "事件", "分红", "并购", "解禁", "质押", "新闻"),
     "risk": ("风险", "偿债", "减值", "债务", "敞口"),
 }
 OVERVIEW_WORDS = ("诊断", "分析", "怎么样", "整体", "全面", "现状")
-ADVICE_WORDS = ("买入", "卖出", "该买吗", "该卖吗", "值得买", "能买吗", "要不要买", "应该买",
-                "推荐买", "该不该买", "持有吗", "抄底", "仓位", "目标价", "会涨吗", "会跌吗", "保证收益")
+# Out-of-scope requests are answered with a reason and suggested questions, never with advice.
+OUT_OF_SCOPE = {
+    "买卖或持仓建议": ("买入", "卖出", "该买吗", "该卖吗", "值得买", "能买吗", "要不要买", "应该买", "推荐买",
+                  "该不该买", "持有吗", "抄底", "仓位", "加仓", "减仓", "清仓"),
+    "股价涨跌预测": ("目标价", "会涨吗", "会跌吗", "能涨", "会不会涨", "会不会跌", "涨到多少", "跌到多少",
+                "预测股价", "股价预测", "未来股价", "上涨空间", "下跌空间"),
+    "收益承诺": ("保证收益", "稳赚", "能赚多少"),
+}
+ADVICE_WORDS = tuple(word for words in OUT_OF_SCOPE.values() for word in words)
+LITHIUM_WORDS = ("锂价", "碳酸锂", "氢氧化锂", "锂精矿")
+STOCK_MARKET_WORDS = ("股价", "行情", "成交", "回撤")
+
+
+def out_of_scope_categories(question: str) -> list[str]:
+    return [category for category, words in OUT_OF_SCOPE.items() if any(word in question for word in words)]
 PROFIT_WORDS = ("利润", "盈利", "亏损")
 CASH_WORDS = ("经营现金流", "经营活动现金流", "经营现金")
 RATIO_WORDS = ("比值", "比例", "比率", "倍数", "覆盖利润", "现金含量")
@@ -80,6 +93,10 @@ def _fallback(question: str) -> tuple[str, tuple[str, ...]]:
     # "经营现金流" is a financial item; its "经营" must not also select operating quality.
     scan = re.sub(r"经营(?:活动)?现金", "现金", question)
     dimensions = tuple(dimension for dimension, words in KEYWORDS.items() if any(word in scan for word in words))
+    # "锂价走势/涨跌" is about lithium prices (industry), not the stock, unless the stock is named explicitly.
+    if "market" in dimensions and any(word in question for word in LITHIUM_WORDS) and \
+            not any(word in question for word in STOCK_MARKET_WORDS):
+        dimensions = tuple(dimension for dimension in dimensions if dimension != "market")
     if len(dimensions) > 1:
         return "multi_dimension", dimensions
     if dimensions:
@@ -157,6 +174,7 @@ def route_question(question: str, llm=None) -> dict:
         "fields": fields_with_priority,
         "field_ids": [field["id"] for field in selected],
         "display_plan": display_plan,
+        "out_of_scope": out_of_scope_categories(question),
         "implemented_field_ids": [field["id"] for field in selected if field["id"] in IMPLEMENTED_FIELD_IDS],
         "pending_field_ids": [field["id"] for field in selected if field["id"] not in IMPLEMENTED_FIELD_IDS],
     }

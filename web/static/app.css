@@ -57,3 +57,5 @@
 .messages{overflow-x:hidden}.runs{max-width:100%;min-width:0}.assistant-message{max-width:760px;width:100%;min-width:0}
 
 .dim-operating_quality{--dim:#4a6f5f}.dim-risk{--dim:#7a5560}
+
+.scope-card .answer-text{font-weight:500;font-size:15px}.suggestion-list{margin:4px 0 0}.suggestion-list .example{font-size:12px;padding:8px 13px}
