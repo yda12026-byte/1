@@ -294,6 +294,48 @@ def _clues(reader: RawReader) -> dict:
                        "raw_files": "ifind_notices_YYYY_MM.json / ifind_news_YYYY_MM.json"}}
 
 
+def _events(reader: RawReader) -> dict | None:
+    """Official announcement list, categories, program excerpts and spot checks (decision 0022)."""
+    from .events import CATEGORIES, classify, periodic_deadline
+
+    if not (reader.raw_dir / "cninfo_announcements.json").exists():
+        return None  # older raw sets: the events dimension stays "clues only"
+    listing = reader.local_json("cninfo_announcements.json")
+    if listing.get("http_status") != 200 or listing.get("total") != len(listing["announcements"]):
+        raise ValueError("cninfo announcement list is incomplete")
+    extract = reader.local_json("cninfo_event_extract.json")
+    checks = reader.local_json("cninfo_event_spotcheck.json") if (reader.raw_dir / "cninfo_event_spotcheck.json").exists() else {}
+    announcements = []
+    for row in listing["announcements"]:
+        day = datetime.fromtimestamp(row["announcementTime"] / 1000, SHANGHAI).date().isoformat()
+        if not WINDOW["start"] <= day <= WINDOW["end"]:
+            raise ValueError("announcement outside the observation window")
+        item = {"id": str(row["announcementId"]), "date": day, "title": row["announcementTitle"].strip(),
+                "category": classify(row["announcementTitle"]),
+                "url": f"https://static.cninfo.com.cn/{row['adjunctUrl']}"}
+        deadline = periodic_deadline(item["title"])
+        if deadline:
+            item["periodic"] = {"kind": deadline[0], "deadline": deadline[1].isoformat()}
+        announcements.append(item)
+    announcements.sort(key=lambda item: (item["date"], item["id"]))
+    results = checks.get("results", {})
+    excerpts = [{key: item[key] for key in ("id", "category", "date", "title", "url", "page", "text")}
+                | {"spot_check": results.get(str(item["id"]), {"status": "not_sampled" if str(item["id"]) not in checks.get("sample", []) else "pending"})}
+                for item in extract["items"]]
+    forecasts = [{key: item[key] for key in ("id", "date", "title", "url", "page", "type", "profit_sign", "metric",
+                                             "period_end", "low", "high", "unit", "quote")}
+                 | {"spot_check": results.get(f"{item['id']}:range", {"status": "pending"})}
+                 for item in extract["forecasts"]]
+    return {"status": "official_list", "categories": CATEGORIES, "announcements": announcements,
+            "excerpts": excerpts, "forecasts": forecasts,
+            "extraction": {"method": extract["method"], "tool": extract["tool"], "max_chars": extract["max_chars"]},
+            "spot_check_note": checks.get("note", "尚未进行人工抽查"),
+            "source": {"provider": "巨潮资讯（深交所指定信息披露网站）", "endpoint": listing["endpoint"],
+                       "raw_files": ["cninfo_announcements.json", "cninfo_event_extract.json", "cninfo_pdf/<公告编号>.pdf"],
+                       "query": f"stock={listing['params']['stock_code']};seDate={listing['params']['seDate']}",
+                       "downloaded_at": listing["downloaded_at"]}}
+
+
 def _official_h1(reader: RawReader) -> dict:
     items = reader.local_json("official_extract_h1.json")
     checks = {(row["period_end"], row["item"]): row["comparison"]
@@ -336,6 +378,9 @@ def build_product_snapshot(raw_dir: Path, *, created_at: str | None = None) -> d
         "clues": _clues(reader),
         "official_h1": _official_h1(reader),
     }
+    events = _events(reader)
+    if events is not None:
+        payload["events"] = events
     payload["raw_manifest"] = dict(sorted(reader.used.items()))
     return payload
 

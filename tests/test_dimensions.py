@@ -221,15 +221,15 @@ class DimensionTests(unittest.TestCase):
     def test_routing_runs_implemented_dimensions_and_keeps_uncovered_years_planned(self):
         self.assertEqual(route_question("估值如何？")["runnable_dimensions"], ["valuation"])
         overview = route_question("全面诊断一下")
-        self.assertEqual(overview["execution_status"], "partial")
+        self.assertEqual(overview["execution_status"], "implemented")
         self.assertEqual(set(overview["runnable_dimensions"]),
-                         {"operating_quality", "financial_trend", "valuation", "market", "industry", "risk"})
+                         {"operating_quality", "financial_trend", "valuation", "market", "industry", "risk", "events"})
         self.assertEqual(route_question("2024年净利润同比增长多少？")["execution_status"], "planned")
         revenue = route_question("2026年上半年营收同比增长多少？")
         self.assertEqual((revenue["execution_status"], revenue["runnable_dimensions"]),
                          ("implemented", ["operating_quality", "financial_trend"]))
         self.assertEqual(route_question("主要风险有哪些？")["execution_status"], "implemented")
-        self.assertEqual(route_question("近期有哪些公告？")["execution_status"], "planned")
+        self.assertEqual(route_question("近期有哪些公告？")["execution_status"], "implemented")  # needs the events block at run time
 
     def test_overall_summary_is_validated_and_falls_back_to_program_anchors(self):
         payload = {**product_payload(), "snapshot_id": "synthetic"}

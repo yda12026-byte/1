@@ -29,7 +29,7 @@ class RouterTests(unittest.TestCase):
             self.assertTrue(item["source_groups"])
             self.assertNotIn("主力资金", item["label"])
         self.assertEqual(Counter(item["candidate_status"] for item in catalog),
-                         {"已取值": 43, "可计算": 9, "部分可用": 19, "待核": 1})
+                         {"已取值": 47, "可计算": 9, "部分可用": 15, "待核": 1})
 
     def test_special_route_only_uses_implemented_fields(self):
         route = route_question("利润和经营现金流匹配吗？")
@@ -52,7 +52,7 @@ class RouterTests(unittest.TestCase):
         self.assertEqual(len(multi["field_ids"]), 15)
         self.assertIn("f003", multi["pending_field_ids"])  # peer list is a decision, not a runtime field
         overview = route_question("全面诊断一下")
-        self.assertEqual((len(overview["field_ids"]), overview["execution_status"]), (72, "partial"))
+        self.assertEqual((len(overview["field_ids"]), overview["execution_status"]), (72, "implemented"))
 
     def test_planned_or_advice_question_does_not_read_snapshot(self):
         provider = lambda: self.fail("data provider should not run")

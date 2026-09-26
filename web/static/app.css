@@ -197,6 +197,23 @@ button { cursor: pointer; }
 .evidence.flash { animation: flash 1.6s ease-out; }
 @keyframes flash { 0%, 30% { background: var(--accent-bg); } 100% { background: transparent; } }
 @media (prefers-reduced-motion: reduce) { .evidence.flash { animation: none; outline: 2px solid var(--accent-line); } }
+.excerpt { margin: 0 0 12px; padding: 10px 14px; border-left: 3px solid var(--line-2); background: var(--soft); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; font-size: 13.5px; line-height: 1.75; color: var(--ink); }
+.source-link { display: inline-block; margin-top: 10px; font-size: 13px; color: var(--accent); text-decoration: none; font-weight: 600; }
+.source-link:hover, .source-link:focus-visible { text-decoration: underline; }
+.price-chart { margin: 0; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px 12px; box-shadow: var(--shadow); }
+.chart-title { font-size: 14px; font-weight: 800; color: var(--ink); margin-bottom: 6px; }
+.chart-holder { position: relative; }
+.price-chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.price-chart .grid { stroke: var(--line); stroke-width: 1; }
+.price-chart .axis { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.price-chart .price-line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; }
+.price-chart .event-stem { stroke: var(--bronze); stroke-width: 1; stroke-dasharray: 2 3; opacity: .55; }
+.price-chart .event-dot { fill: var(--card); stroke: var(--bronze); stroke-width: 2; }
+.price-chart .event-mark { fill: var(--bronze); }
+.price-chart .hit { fill: transparent; cursor: pointer; }
+.price-chart .crosshair { stroke: var(--ink-2); stroke-width: 1; opacity: .5; }
+.chart-tip { position: absolute; top: 0; transform: translateX(-50%); background: var(--ink); color: #fff; font-size: 12px; line-height: 1.6; padding: 6px 10px; border-radius: 6px; white-space: pre-line; max-width: 320px; pointer-events: none; z-index: 2; }
+.chart-note { font-size: 12px; color: var(--muted); line-height: 1.6; margin-top: 6px; }
 .tech { margin-top: 12px; border-top: 1px dashed var(--line-2); padding-top: 10px; }
 .tech > summary { cursor: pointer; list-style: none; font-size: 12px; color: var(--muted); font-weight: 700; display: inline-flex; gap: 5px; }
 .tech > summary::-webkit-details-marker { display: none; }

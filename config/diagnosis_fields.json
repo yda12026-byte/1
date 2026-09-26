@@ -753,7 +753,7 @@
       "candidate_status": "已取值",
       "review_note": "已检索到天齐相关公告片段；片段不是完整公告。",
       "kind": "source",
-      "product_state": "pending"
+      "product_state": "implemented"
     },
     {
       "id": "f056",
@@ -763,10 +763,10 @@
       "source_groups": [
         "official_filing"
       ],
-      "candidate_status": "部分可用",
+      "candidate_status": "已取值",
       "review_note": "已取得五份官方定期报告原文及链接；尚未提取页码，也未取得全年临时公告原文。iFinD 检索结果只有片段，不能代替原文。",
       "kind": "source",
-      "product_state": "pending"
+      "product_state": "implemented"
     },
     {
       "id": "f057",
@@ -778,10 +778,10 @@
         "ifind",
         "official_filing"
       ],
-      "candidate_status": "部分可用",
+      "candidate_status": "已取值",
       "review_note": "扶摇期末字段有值、iFinD 公告有日期；扶摇最新 `report_date_ms` 等于期末，实际披露日须以原公告核准。",
       "kind": "source",
-      "product_state": "pending"
+      "product_state": "implemented"
     },
     {
       "id": "f058",
@@ -791,10 +791,10 @@
       "source_groups": [
         "official_filing"
       ],
-      "candidate_status": "部分可用",
+      "candidate_status": "已取值",
       "review_note": "公告检索返回相关片段；尚未逐项识别事件和核准原文，不能直接列为确定事件。",
       "kind": "source",
-      "product_state": "pending"
+      "product_state": "implemented"
     },
     {
       "id": "f059",
@@ -804,10 +804,10 @@
       "source_groups": [
         "fuyao"
       ],
-      "candidate_status": "部分可用",
+      "candidate_status": "已取值",
       "review_note": "扶摇 2024-01-01 至 2026-09-26 曾返回 1 条分红相关记录；本次一年窗口返回业务 `code=3002`（无匹配事件）。两次范围不同，不可推断全年没有其他公司行为。",
       "kind": "source",
-      "product_state": "pending"
+      "product_state": "implemented"
     },
     {
       "id": "f060",

@@ -39,11 +39,18 @@ HTML 前端可使用必要的 CSS 与浏览器 JavaScript。服务端、数据�
 
 经营质量与风险维度在 `src/diagnosis/dimensions_extra.py`，读取产品快照的 `official_h1` 块（官方半年报人工摘录，含页码与 iFinD 交叉核对状态），见决策 0018。
 
+## 已实现：重要事件（决策 0022）
+
+- `scripts/download_cninfo_events.py` → `cninfo_announcements.json` 与 `cninfo_pdf/`；`scripts/extract_cninfo_events.py` → `cninfo_event_extract.json`（追加资本运作类后重新生成，首版保留为 `cninfo_event_extract.v1.json`，原 21 条摘录逐字相同）；`scripts/record_event_spotcheck.py` → `cninfo_event_spotcheck.json`（均在 Git 忽略的一年原始目录）。
+- `src/diagnosis/events.py`：标题分类规则与定期报告法定期限；`product_snapshot._events` 生成可选 `events` 块。
+- `src/diagnosis/dimension_events.py`：事件维度结论（分类计数、按期披露、业绩预告对照、原文摘录）与 `price_chart`；快照无 `events` 块时 `webapp.py` 把事件退回缺口与新闻线索。
+- 前端：摘录以引用块显示并链接 PDF 页码；行情分区（或只问事件时的事件分区）显示 SVG 收盘价折线与事件标记。
+
 ## 待确定事项
 
 早期列出的业务与行业比较口径、数据接口与授权、同行口径已分别在决策 0003、0013、0014、0016–0018 确定；数据新鲜度不适用（固定快照，决策 0006）。剩余：
 
 - CloudBase 存储挂载实测（服务已从 Git 构建上线，端口 8080；首次挂载因平台生成的 COS 地址格式报错，正在改用“云开发云存储”选项，见部署清单）
-- 锂价经营敏感性（f070）、海外敞口（f071）与公告原文证据仍无核准数据
+- 锂价经营敏感性（f070）、海外敞口（f071）仍无核准数据；股权质押（f060）、解禁（f061）尚未作为正式证据
 
 每项确定后在 `decisions/` 记录理由，并同步更新本文件。

@@ -18,7 +18,7 @@ from .priority import priority_for_field
 from .product_snapshot import NAMES, SUBJECT
 
 CONFIG_VERSION = "dimensions-v1"
-DIMENSION_RUNNERS = ("operating_quality", "financial_trend", "valuation", "market", "industry", "risk")
+DIMENSION_RUNNERS = ("operating_quality", "financial_trend", "valuation", "market", "industry", "risk", "events")
 PERIOD, BASE = "2026-06-30", "2025-06-30"
 YI = Decimal("100000000")
 
@@ -590,8 +590,9 @@ RUNNERS = {"financial_trend": financial_run, "valuation": valuation_run, "market
 
 
 def _runners() -> dict:
-    from .dimensions_extra import operating_quality_run, risk_run  # late import: extra module builds on this one
-    return {**RUNNERS, "operating_quality": operating_quality_run, "risk": risk_run}
+    from .dimension_events import events_run  # late imports: these modules build on this one
+    from .dimensions_extra import operating_quality_run, risk_run
+    return {**RUNNERS, "operating_quality": operating_quality_run, "risk": risk_run, "events": events_run}
 
 
 def run_dimension(dimension: str, snapshot: dict, question: str, route: dict) -> DiagnosisRun:

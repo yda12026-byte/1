@@ -117,10 +117,14 @@ def summarize(runs: list[DiagnosisRun], route: dict, llm=None) -> dict:
 
 def diagnose_dimensions(question: str, route: dict, snapshot_provider: Callable[[], dict],
                         llm=None) -> tuple[list[DiagnosisRun], dict | None]:
-    dimensions = route.get("runnable_dimensions") or []
-    if not dimensions:
+    if not route.get("runnable_dimensions"):
         return [], None
     snapshot = snapshot_provider()
+    # Snapshots built before decision 0022 have no official events block; events then stay "clues only".
+    dimensions = [d for d in route["runnable_dimensions"] if d != "events" or "events" in snapshot]
+    if not dimensions:
+        return [], None
+    route = {**route, "runnable_dimensions": dimensions}
     base_route = {"intent": route["intent"], "dimensions": route["dimensions"], "method": route["method"],
                   "catalog_version": route["config_version"], "execution_status": route["execution_status"],
                   "snapshot": {"id": snapshot["snapshot_id"], "created_at": snapshot["created_at"], "status": "fixed"}}

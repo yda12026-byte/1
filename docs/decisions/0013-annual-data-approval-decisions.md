@@ -76,3 +76,5 @@
 - 同行组已补下载：`scripts/download_annual_raw.py` 新增中矿资源 `002738.SZ`、永兴材料 `002756.SZ`；扶摇两股各 242 条前复权日线、12 期三张报表、5 期指标（`fuyao_peer002738_*`、`fuyao_peer002756_*`）；iFinD 取得 `ifind_peer002738_financial_2026_h1.json`、`ifind_peer002756_financial_2026_h1.json` 与四只股票同日估值 `ifind_peer_valuation_cutoff_group.json`。未覆盖赣锋已有文件。
 - `scripts/audit_annual_coverage.py` 已把同行组文件纳入 `f053`/`f054`/`f040`；覆盖审计仍为 70 项待核、`f059` 无匹配事件、`f048` 历史接口不可用。
 - 仍未核准：同行财务的报告期语义、四只股票 2026-08-31 同日估值口径、各字段单位与披露日。
+
+> 2026-09-26 补记：第 7 项中“公告仅作待核线索”已被[决策 0022](0022-official-announcements-events.md)取代，公告改用巨潮资讯官方清单与原文；新闻仍只作线索。

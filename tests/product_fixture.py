@@ -120,8 +120,45 @@ def _official_items() -> list[dict]:
     return rows
 
 
-def product_payload() -> dict:
+def events_block() -> dict:
+    """Synthetic official-announcement block (decision 0022); titles and texts are made up."""
+    url = lambda n: f"https://static.cninfo.com.cn/finalpage/2026-01-01/{n}.PDF"
+    rows = [("1", "2025-10-30", "2025年三季度报告", "periodic", {"kind": "三季度报告", "deadline": "2025-10-31"}),
+            ("2", "2026-01-20", "关于示例项目进展情况的公告", "project", None),
+            ("3", "2026-06-11", "关于示例工厂发生局部火情的公告", "project", None),
+            ("4", "2026-03-28", "关于2025年度拟不进行利润分配的公告", "dividend", None),
+            ("5", "2026-04-01", "关于全资子公司提起诉讼的进展公告", "litigation", None),
+            ("6", "2026-07-15", "2026年半年度业绩预告", "forecast", None),
+            ("7", "2026-08-28", "2026年半年度报告", "periodic", {"kind": "半年度报告", "deadline": "2026-08-31"}),
+            ("8", "2026-08-28", "第七届董事会第三次会议决议公告", "other", None),
+            ("9", "2026-02-04", "关于择机处置公司部分参股公司股权的公告", "capital", None)]
+    announcements = [{"id": n, "date": d, "title": title, "category": cat, "url": url(n), **({"periodic": per} if per else {})}
+                     for n, d, title, cat, per in rows]
+    texts = {"2": "示例项目于某日生产出首批合格产品。", "3": "示例工厂在检修期间发生局部火情，无人员受伤。",
+             "4": "公司拟不派发现金红利，不送红股，不以公积金转增股本。", "5": "案件所处的诉讼阶段：法院驳回了原告的诉讼请求。",
+             "6": "预计净利润为正值且属于同向上升情形……归属于上市公司股东的净利润盈利：300,000～盈利：500,000",
+             "9": "公司拟提请董事会授权公司管理层择机对部分参股公司股权进行处置。"}
+    excerpts = [{"id": n, "category": cat, "date": d, "title": title, "url": url(n), "page": 1, "text": texts[n],
+                 "spot_check": {"status": "consistent" if n == "2" else "not_sampled"}}
+                for n, d, title, cat, _ in rows if n in texts]
+    forecasts = [{"id": "6", "date": "2026-07-15", "title": "2026年半年度业绩预告", "url": url("6"), "page": 1, "type": "同向上升",
+                  "profit_sign": "正值", "metric": "归属于上市公司股东的净利润", "period_end": "2026-06-30",
+                  "low": 300000.0, "high": 500000.0, "unit": "万元", "quote": "盈利：300,000～盈利：500,000",
+                  "spot_check": {"status": "consistent"}}]
+    categories = {"periodic": "定期报告", "forecast": "业绩预告", "project": "项目或扩产", "litigation": "诉讼仲裁",
+                  "guarantee": "担保", "buyback": "回购", "hedging": "套期保值", "dividend": "利润分配", "capital": "资本运作",
+                  "other": "其他公告"}
+    return {"status": "official_list", "categories": categories, "announcements": announcements, "excerpts": excerpts,
+            "forecasts": forecasts, "extraction": {"method": "program_extraction", "tool": "synthetic", "max_chars": 220},
+            "spot_check_note": "synthetic",
+            "source": {"provider": "巨潮资讯（深交所指定信息披露网站）", "endpoint": "/new/hisAnnouncement/query",
+                       "raw_files": [], "query": "stock=002466", "downloaded_at": CREATED_AT}}
+
+
+def product_payload(events: bool = False) -> dict:
     payload = _base_payload()
+    if events:
+        payload["events"] = events_block()
     payload["official_h1"] = {"items": _official_items(), "source": {}}
     for blocks in payload["indicators"].values():
         for period, block in blocks.items():

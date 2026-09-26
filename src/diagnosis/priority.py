@@ -8,7 +8,7 @@ from pathlib import Path
 from .catalog import DIMENSIONS, EXECUTABLE_FIELDS, SUBJECT, load_catalog
 
 PROFILE_PATH = Path(__file__).resolve().parents[2] / "config" / "priority_profile_002466.json"
-PROFILE_VERSION = "002466-priority-v2"
+PROFILE_VERSION = "002466-priority-v3"
 TIERS = ("driver", "support", "context", "low")
 
 

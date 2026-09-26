@@ -84,15 +84,21 @@ function renderEvidence(item, byId, runId) {
   const summary = el('summary');
   const name = addText(summary, 'span', 'evidence-name', evidenceName(item));
   if (item.kind === 'computed') addText(name, 'span', 'kind-badge', '计算');
-  addText(summary, 'span', 'evidence-value', item.value === null ? '—' : tableValue(item));
+  addText(summary, 'span', 'evidence-value', item.value === null ? '—' : item.unit === '文本' ? '原文摘录' : tableValue(item));
   addText(summary, 'span', `evidence-state state-${status}`, labels[status] || status);
   details.append(summary);
 
   const body = el('div', 'evidence-body'), grid = el('dl', 'evidence-grid');
-  detailPair(grid, '数值', evidenceValue(item));
+  if (item.unit === '文本' && item.value !== null) addText(body, 'blockquote', 'excerpt', item.value);
+  else detailPair(grid, '数值', evidenceValue(item));
   detailPair(grid, '时间', timeText(item.time));
   detailPair(grid, '口径', scopeText(item.scope));
   body.append(grid);
+  if (/^https:\/\/static\.cninfo\.com\.cn\//.test(item.source?.url || '')) {
+    const link = addText(body, 'a', 'source-link', `打开公告原文${item.source.page ? `（第 ${item.source.page} 页）` : ''} ↗`);
+    link.href = item.source.page ? `${item.source.url}#page=${item.source.page}` : item.source.url;
+    link.target = '_blank'; link.rel = 'noopener noreferrer';
+  }
   if (status !== 'valid' && item.quality.reason) addText(body, 'div', `status-reason state-${status}`, `${labels[status] || status}：${item.quality.reason}`);
   if (item.calculation) {
     const calc = item.calculation, box = el('div', 'calc-box');
@@ -229,9 +235,12 @@ function renderGaps(fields, title) {
 function renderClues(clues) {
   const card = el('div', 'answer');
   const header = el('div', 'answer-header'); addText(header, 'span', 'tag unknown', '待核线索'); card.append(header);
-  addText(card, 'p', 'answer-text', '以下为公告与新闻检索线索，未逐条核对原文，不构成事件结论。');
-  addText(card, 'div', 'answer-note', `${clues.note}。共 ${clues.total.notices} 条公告、${clues.total.news} 条新闻，此处按日期列出最近各 ${clues.notices.length}/${clues.news.length} 条。`);
+  const official = clues.total.notices === 0;
+  addText(card, 'p', 'answer-text', official ? '以下为新闻检索线索，未逐条核对原文，不构成事件结论。' : '以下为公告与新闻检索线索，未逐条核对原文，不构成事件结论。');
+  addText(card, 'div', 'answer-note', official ? `${clues.note}。共 ${clues.total.news} 条新闻，此处按日期列出最近 ${clues.news.length} 条。`
+    : `${clues.note}。共 ${clues.total.notices} 条公告、${clues.total.news} 条新闻，此处按日期列出最近各 ${clues.notices.length}/${clues.news.length} 条。`);
   for (const [title, rows] of [['公告标题（iFinD 检索，无原文链接）', clues.notices], ['新闻（第三方资讯）', clues.news]]) {
+    if (!rows.length) continue;
     addText(card, 'div', 'clue-title', title);
     const list = el('ul', 'clue-list');
     for (const row of rows) {
@@ -242,7 +251,7 @@ function renderClues(clues) {
     }
     card.append(list);
   }
-  return makeCollapsible(card, header, `公告与新闻待核线索（${clues.total.notices} 条公告、${clues.total.news} 条新闻）`);
+  return makeCollapsible(card, header, official ? `新闻待核线索（${clues.total.news} 条）` : `公告与新闻待核线索（${clues.total.notices} 条公告、${clues.total.news} 条新闻）`);
 }
 const markSymbols = { positive: '↑', negative: '↓', mixed: '⇅', neutral: '·', unknown: '?' };
 function renderOverview(runs) {
@@ -268,6 +277,60 @@ function renderOverview(runs) {
   }
   return grid;
 }
+// 前复权收盘价折线 + 官方事件日期标记；只做时间并列，不做归因。
+function renderPriceChart(chart) {
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const W = 720, H = 240, L = 48, R = 12, T = 14, B = 44;
+  const pts = chart.points, closes = pts.map(p => p[1]);
+  const lo = Math.min(...closes), hi = Math.max(...closes), pad = (hi - lo) * 0.08 || 1;
+  const y0 = lo - pad, y1 = hi + pad;
+  const x = i => L + (W - L - R) * i / (pts.length - 1);
+  const y = v => T + (H - T - B) * (1 - (v - y0) / (y1 - y0));
+  const index = Object.fromEntries(pts.map((p, i) => [p[0], i]));
+  const nearest = day => { if (day in index) return index[day]; const i = pts.findIndex(p => p[0] >= day); return i < 0 ? pts.length - 1 : i; };
+  const node = (tag, attrs, parent) => { const n = document.createElementNS(svgNS, tag); for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v); if (parent) parent.append(n); return n; };
+
+  const figure = el('figure', 'price-chart');
+  addText(figure, 'figcaption', 'chart-title', `天齐锂业前复权收盘价与官方事件日期（${pts[0][0]} 至 ${pts[pts.length - 1][0]}）`);
+  const holder = el('div', 'chart-holder'); figure.append(holder);
+  const svg = node('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': `收盘价折线，区间最低 ${lo} 元、最高 ${hi} 元，标出 ${chart.markers.length} 份事件公告` }, holder);
+  for (const v of [lo, (lo + hi) / 2, hi]) {
+    node('line', { x1: L, x2: W - R, y1: y(v), y2: y(v), class: 'grid' }, svg);
+    const label = node('text', { x: L - 6, y: y(v) + 4, class: 'axis', 'text-anchor': 'end' }, svg); label.textContent = v.toFixed(2);
+  }
+  for (const [i, anchor] of [[0, 'start'], [pts.length - 1, 'end']]) {
+    const t = node('text', { x: x(i), y: H - B + 16, class: 'axis', 'text-anchor': anchor }, svg); t.textContent = pts[i][0];
+  }
+  node('path', { d: pts.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p[1]).toFixed(1)}`).join(''), class: 'price-line' }, svg);
+  const byDay = {};
+  for (const m of chart.markers) (byDay[m.date] ||= []).push(m);
+  const markerY = H - B + 30;
+  for (const [day, items] of Object.entries(byDay)) {
+    const i = nearest(day), cx = x(i);
+    node('line', { x1: cx, x2: cx, y1: y(pts[i][1]), y2: markerY - 6, class: 'event-stem' }, svg);
+    node('circle', { cx, cy: y(pts[i][1]), r: 3.5, class: 'event-dot' }, svg);
+    const link = node('a', { href: items[0].url, target: '_blank', rel: 'noopener noreferrer' }, svg);
+    node('path', { d: `M${cx},${markerY - 6}l5,9h-10z`, class: 'event-mark' }, link);
+    node('rect', { x: cx - 8, y: markerY - 10, width: 16, height: 18, class: 'hit' }, link);
+    const title = node('title', {}, link);
+    title.textContent = `${day}\n${items.map(m => `【${m.category}】${m.title}`).join('\n')}\n点击打开第一份公告原文`;
+  }
+  const cross = node('line', { y1: T, y2: H - B, class: 'crosshair', visibility: 'hidden' }, svg);
+  const tip = addText(holder, 'div', 'chart-tip'); tip.hidden = true;
+  svg.addEventListener('mousemove', event => {
+    const box = svg.getBoundingClientRect(), px = (event.clientX - box.left) * W / box.width;
+    if (px < L || px > W - R) { cross.setAttribute('visibility', 'hidden'); tip.hidden = true; return; }
+    const i = Math.round((px - L) / (W - L - R) * (pts.length - 1)), [day, close] = pts[i];
+    cross.setAttribute('x1', x(i)); cross.setAttribute('x2', x(i)); cross.setAttribute('visibility', 'visible');
+    const events = byDay[day] || [];
+    tip.textContent = `${day}　收盘 ${close.toFixed(2)} 元${events.length ? '\n' + events.map(m => `【${m.category}】${m.title}`).join('\n') : ''}`;
+    tip.hidden = false;
+    tip.style.left = `${Math.min(Math.max(x(i) / W * 100, 12), 78)}%`;
+  });
+  svg.addEventListener('mouseleave', () => { cross.setAttribute('visibility', 'hidden'); tip.hidden = true; });
+  addText(figure, 'div', 'chart-note', `▲ 为重要事项的公告日期（共 ${chart.markers.length} 份，同日合并为一个标记），悬停查看标题，点击打开原文。${chart.note}。来源：${chart.source}。`);
+  return figure;
+}
 function renderProgress(question) {
   const card = el('div', 'progress-card');
   const head = el('div', 'progress-head');
@@ -279,7 +342,7 @@ function renderProgress(question) {
   for (const step of ['识别问题与维度', '读取固定快照', '程序计算指标与证据', '模型解读并校验']) addText(steps, 'li', '', step);
   card.append(steps);
   const broad = /全面|诊断|怎么样|整体/.test(question);
-  addText(card, 'div', 'progress-note', broad ? '全面诊断涉及六个维度，通常需要十几秒。' : '单维度问题通常需要几秒到十几秒。');
+  addText(card, 'div', 'progress-note', broad ? '全面诊断涉及七个维度，通常需要十几秒。' : '单维度问题通常需要几秒到十几秒。');
   const node = addMessage(card);
   const start = Date.now();
   const timer = setInterval(() => { time.textContent = `${Math.round((Date.now() - start) / 1000)} 秒`; }, 1000);
@@ -311,7 +374,11 @@ function renderRuns(payload) {
     const section = el('section', `run-section dim-${run.route.dimension || 'financial_trend'}`);
     section.id = `sec-${run.id}`;
     if (runs.length > 1 || run.route.dimension_label) addText(section, 'h3', 'run-title', run.route.dimension_label || '财务诊断');
+    // One price chart with event dates: under 行情 when present, otherwise under 重要事件.
+    const dim = run.route.dimension, dims = runs.map(r => r.route.dimension);
+    if (payload.price_chart && (dim === 'market' || (dim === 'events' && !dims.includes('market')))) section.append(renderPriceChart(payload.price_chart));
     for (const conclusion of run.conclusions) section.append(renderConclusion(conclusion, byId, run.id, payload.snapshot));
+    if (dim === 'events' && payload.clues) { section.append(renderClues(payload.clues)); payload = { ...payload, clues: null }; }
     wrap.append(section);
   }
   if (payload.clues) { addText(wrap, 'h3', 'run-title', '重要事件'); wrap.append(renderClues(payload.clues)); }

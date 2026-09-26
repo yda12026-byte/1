@@ -14,6 +14,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from diagnosis.catalog import DIMENSION_EXECUTABLE, DIMENSIONS, EXECUTABLE_FIELDS, SUBJECT, WINDOW  # noqa: E402
 from diagnosis.deepseek import DeepSeek  # noqa: E402
+from diagnosis.dimension_events import price_chart  # noqa: E402
 from diagnosis.net import load_env  # noqa: E402
 from diagnosis.pipeline import diagnose_dimensions, diagnose_profit_cash  # noqa: E402
 from diagnosis.cos_fetch import SNAPSHOT_FILES, CosSnapshotFetcher  # noqa: E402
@@ -37,6 +38,7 @@ DIMENSION_EXAMPLES = [
     "天齐锂业各项业务的毛利率如何？",
     "天齐锂业与同行相比如何？",
     "天齐锂业近一年的股价表现和波动如何？",
+    "天齐锂业近一年有哪些重要公告？",
     "近一年锂价走势如何？",
     "天齐锂业有哪些主要风险？",
     "天齐锂业近期有哪些公告？",
@@ -81,6 +83,9 @@ def _clues(document: dict | None, limit: int = 12) -> dict | None:
     if document is None:
         return None
     clues = document["clues"]
+    if "events" in document:  # official announcements replace the iFinD notice search (decision 0022); news stays a clue
+        return {"status": clues["status"], "note": "新闻为第三方资讯，未核对原文，只作线索；公司公告见上方官方清单",
+                "notices": [], "news": clues["news"][:limit], "total": {"notices": 0, "news": len(clues["news"])}}
     return {"status": clues["status"], "note": clues["note"], "notices": clues["notices"][:limit],
             "news": clues["news"][:limit], "total": {"notices": len(clues["notices"]), "news": len(clues["news"])}}
 
@@ -108,7 +113,7 @@ def _gap_fields(route: dict, skip_dimensions: tuple[str, ...] = ()) -> list[dict
             and field["dimension"] not in skip_dimensions]
 
 
-SCOPE_TEXT = "本模型只基于截至 2026-08-31 的固定数据，对天齐锂业的经营质量、财务趋势、估值、行情特征、行业位置和风险六个维度做有证据的诊断，并列出公告与新闻检索线索"
+SCOPE_TEXT = "本模型只基于截至 2026-08-31 的固定数据，对天齐锂业的经营质量、财务趋势、估值、行情特征、行业位置、重要事件和风险做有证据的诊断，新闻只作检索线索"
 SUGGESTIONS = {
     "买卖或持仓建议": ["全面诊断一下天齐锂业", "天齐锂业的估值处于什么位置？", "天齐锂业有哪些主要风险？"],
     "股价涨跌预测": ["全面诊断一下天齐锂业", "天齐锂业近一年的股价表现和波动如何？", "天齐锂业与同行相比如何？"],
@@ -181,10 +186,12 @@ def create_app(*, snapshot_path: Path | None = None, product_snapshot_path: Path
 
     @app.get("/api/bootstrap")
     def bootstrap():
-        product, _ = _product_state(product_path)
+        product, document = _product_state(product_path)
         ready = product["status"] == "fixed"
 
         def status(key: str) -> str:
+            if key == "events":
+                return "implemented" if ready and "events" in document else "clues" if ready else "planned"
             if key in DIMENSION_EXECUTABLE:
                 return "implemented" if ready else "limited" if key == "financial_trend" else "planned"
             return "clues" if key == "events" and ready else "planned"
@@ -193,21 +200,28 @@ def create_app(*, snapshot_path: Path | None = None, product_snapshot_path: Path
                         "examples": EXAMPLES, "dimension_examples": DIMENSION_EXAMPLES if ready else [],
                         "dimensions": [{"id": key, "label": value, "status": status(key)} for key, value in DIMENSIONS.items()],
                         "snapshot": _snapshot_state(path), "product_snapshot": product,
-                        "scope": "经营质量、财务趋势、估值、行情特征、行业位置、风险六维可诊断；重要事件仅列待核检索线索。"})
+                        "scope": "经营质量、财务趋势、估值、行情特征、行业位置、风险可诊断；重要事件在接入官方公告清单后可诊断，否则只列检索线索。"})
 
     def dimension_payload(resolved: str, question: str, route: dict):
         state, document = _product_state(product_path)
         if document is None:
             return jsonify({"status": "snapshot_unavailable", "snapshot": state, "message": state["message"],
                             "context": None}), 503
+        if "events" in route["runnable_dimensions"] and "events" not in document:
+            # Snapshot built before decision 0022: events fall back to gaps plus search clues.
+            runnable = [d for d in route["runnable_dimensions"] if d != "events"]
+            route = {**route, "runnable_dimensions": runnable, "execution_status": "partial" if runnable else "planned"}
+            if not runnable:
+                return jsonify({**_planned_payload(route), "clues": _clues(document)})
         try:
             runs, summary = diagnose_dimensions(resolved, route, lambda: document, llm)
         except (ValueError, KeyError, TypeError, IndexError, ArithmeticError):
             return jsonify({"status": "snapshot_unavailable", "snapshot": state,
                             "message": "完整产品快照的计算校验失败；诊断暂不可用。", "context": None}), 503
         return jsonify({"status": "ok", "summary": summary, "runs": [run.to_dict() for run in runs], "snapshot": state,
-                        "gaps": _gap_fields(route, DIMENSION_EXECUTABLE) if route["execution_status"] == "partial" else [],
+                        "gaps": _gap_fields(route, tuple(route["runnable_dimensions"])) if route["execution_status"] == "partial" else [],
                         "clues": _clues(document) if "events" in route["dimensions"] else None,
+                        "price_chart": price_chart(document) if {"market", "events"} & set(route["dimensions"]) else None,
                         "route": {"intent": route["intent"], "dimensions": route["dimensions"],
                                   "execution_status": route["execution_status"]},
                         "context": None, "resolved_question": resolved if resolved != question else None})

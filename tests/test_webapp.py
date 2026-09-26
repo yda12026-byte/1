@@ -132,7 +132,7 @@ class WebAppTests(unittest.TestCase):
 
     def test_planned_dimensions_show_gaps_without_reading_snapshot(self):
         client = self.client(CACHE / f"absent_{uuid4().hex}.json")
-        for question in ("天齐锂业近期有哪些公告？", "2024年净利润同比增长多少？"):
+        for question in ("2024年净利润同比增长多少？",):
             status, data = self.ask(client, question)
             self.assertEqual((status, data["status"]), (200, "not_implemented"), question)
             self.assertNotIn("run", data)
@@ -148,7 +148,7 @@ class WebAppTests(unittest.TestCase):
             self.assertEqual((data["status"], data["reason"], data["categories"]),
                              ("unsupported_question", "out_of_scope", categories), question)
             self.assertTrue(data["message"].startswith(f"您的提问涉及{'、'.join(categories)}，超出本模型能力范围。"))
-            self.assertIn("六个维度", data["message"])
+            self.assertIn("重要事件", data["message"])
             self.assertIn("全面诊断一下天齐锂业", data["suggestions"])
             self.assertNotIn("run", data)
         _, data = self.ask(client, "你好")
@@ -247,6 +247,21 @@ class WebAppTests(unittest.TestCase):
         _, events = self.ask(client, "天齐锂业近期有哪些公告？")
         self.assertEqual(events["status"], "not_implemented")
         self.assertEqual(events["clues"]["total"], {"notices": 2, "news": 2})
+
+    def test_official_events_make_events_a_diagnosable_dimension(self):
+        client = self.client(product=self.product(product_payload(events=True)))
+        statuses = {d["id"]: d["status"] for d in client.get("/api/bootstrap").get_json()["dimensions"]}
+        self.assertEqual(statuses["events"], "implemented")
+        status, data = self.ask(client, "天齐锂业近期有哪些公告？")
+        self.assertEqual((status, data["status"]), (200, "ok"))
+        self.assertEqual([run["route"]["dimension"] for run in data["runs"]], ["events"])
+        self.assertEqual((data["clues"]["notices"], data["clues"]["total"]["notices"]), ([], 0))
+        self.assertTrue(data["price_chart"]["markers"])
+        _, overview = self.ask(client, "全面诊断一下天齐锂业")
+        self.assertEqual(len(overview["runs"]), 7)
+        self.assertEqual(overview["gaps"], [])
+        _, valuation = self.ask(client, "天齐锂业估值处于什么位置？")
+        self.assertIsNone(valuation["price_chart"])
 
     def test_dimension_question_without_product_snapshot_is_unavailable_but_narrow_questions_work(self):
         client = self.client()

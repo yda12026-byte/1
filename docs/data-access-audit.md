@@ -50,3 +50,10 @@
 - [扶摇估值接口](https://fuyao.aicubes.cn/docs/api-reference/valuations/)
 - [iFinD Skill 安装指南](https://mcp.51ifind.com/gwstatic/static/ds_web/ifind-mcp-web/skills/SKILL_INSTALL_GUIDE.md)
 - [Codex 配置参考：MCP 服务与 HTTP 请求头](https://developers.openai.com/codex/config-reference)
+
+## 2026-09-26 巨潮资讯公告清单与原文（决策 0022）
+
+- 请求：`POST https://www.cninfo.com.cn/new/hisAnnouncement/query`，`stock=002466,<orgId>`（orgId 由 `/new/information/topSearch/query` 按代码唯一匹配），`column=szse`、`tabName=fulltext`、`seDate=2025-08-31~2026-08-31`，每页 30 条翻页。HTTP 200；`totalAnnouncement=207`，取回 207 条，公告编号无重复，全部为 PDF。
+- 字段：公告编号、标题、公告时间（毫秒，按北京时间换算为披露日）、附件路径（拼接 `https://static.cninfo.com.cn/`）。
+- 原文：按标题规则选出八类重要事项中非定期报告的 21 份，下载 PDF 共约 2.8MB；同日追加“资本运作”类后续下 5 份，共 26 份；定期报告只用清单中的披露时间。
+- 限制：公开接口无需密钥，但属网站查询接口，字段含义以返回为准；清单与 PDF 存于 Git 忽略的一年原始目录，不入仓库。
