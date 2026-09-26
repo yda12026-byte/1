@@ -16,13 +16,21 @@
     </header>
     <main class="workspace">
       <aside class="sidebar" aria-label="研究范围">
-        <h1>从一个问题<br>走向证据。</h1>
-        <p class="intro">围绕天齐锂业的六个维度，给出可追溯到原始字段与报告页码的结论。数据截至 2026-08-31 的固定快照。</p>
-        <div class="sidebar-card">
-          <div class="card-kicker">研究区间</div>
-          <div class="window">2025.08.31 <span>—</span> 2026.08.31</div>
-          <div class="card-note">财务报告期与快照下载时间请在证据中分别查看。</div>
+        <div class="company-kicker">公司概况</div>
+        <h1 class="company-name">天齐锂业</h1>
+        <div class="company-full">天齐锂业股份有限公司</div>
+        <div class="company-codes">
+          <span class="code-chip">002466.SZ<span>深交所 A 股</span></span>
+          <span class="code-chip">9696.HK<span>港交所 H 股</span></span>
         </div>
+        <dl class="company-facts">
+          <div><dt>所属行业</dt><dd>申万一级：有色金属<br>同花顺：有色金属—能源金属—锂</dd></div>
+          <div><dt>主营业务</dt><dd>硬岩型锂矿资源开发、锂精矿生产销售、锂化工产品生产销售</dd></div>
+          <div><dt>主要产品</dt><dd>锂精矿（化学级、技术级）；碳酸锂、氢氧化锂、金属锂、氯化锂等</dd></div>
+          <div><dt>比较同行</dt><dd>赣锋锂业 002460、中矿资源 002738、永兴材料 002756</dd></div>
+          <div><dt>数据范围</dt><dd>观察区间 2025-08-31 至 2026-08-31；财务取 2026 年半年报</dd></div>
+        </dl>
+        <div class="company-source">来源：公司 2026 年半年报第 9、12 页；行业分类取自 iFinD 公司资料；同行组见决策 0013。</div>
         <div class="section-label">诊断维度</div>
         <div id="dimensions" class="dimensions" aria-live="polite"></div>
         <div class="sidebar-bottom">仅说明可验证的内容。<br>不提供买卖建议或涨跌预测。</div>
@@ -45,7 +53,7 @@
           <div id="examples" class="examples"></div>
           <form id="chat-form" class="composer">
             <label class="sr-only" for="question">输入研究问题</label>
-            <textarea id="question" name="question" rows="2" maxlength="500" placeholder="例如：天齐锂业全面诊断一下" required></textarea>
+            <textarea id="question" name="question" rows="2" maxlength="500" placeholder="例如：全面诊断一下天齐锂业" required></textarea>
             <button id="send" type="submit" aria-label="发送问题">发送 <span aria-hidden="true">↗</span></button>
           </form>
           <p class="composer-note">不提供买卖建议或涨跌预测 · 对话只保留在当前页面</p>

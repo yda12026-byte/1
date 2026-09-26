@@ -67,7 +67,7 @@ function renderEvidence(item, byId, runId) {
   const summary = el('summary');
   const name = addText(summary, 'span', 'evidence-name', evidenceName(item));
   if (item.kind === 'computed') addText(name, 'span', 'kind-badge', '计算');
-  addText(summary, 'span', 'evidence-value', item.value === null ? '—' : `${item.value} ${item.unit || ''}`.trim());
+  addText(summary, 'span', 'evidence-value', item.value === null ? '—' : tableValue(item));
   addText(summary, 'span', `evidence-state state-${status}`, labels[status] || status);
   details.append(summary);
 
@@ -106,6 +106,35 @@ function renderEvidence(item, byId, runId) {
   tech.append(techGrid); body.append(tech);
   details.append(body); return details;
 }
+function tableValue(item) {
+  if (!item) return '—';
+  if (item.value === null) return labels[item.quality.status] || '—';
+  const number = Number(item.value);
+  const text = Number.isFinite(number) && /\.\d{3,}/.test(item.value) ? number.toFixed(2) : item.value;
+  return `${text}${item.unit ? ' ' + item.unit : ''}`;
+}
+function renderTable(table, byId, runId) {
+  const wrap = el('div', 'compare-wrap');
+  const t = el('table', 'compare-table');
+  const head = el('tr'); addText(head, 'th', '', '指标');
+  table.columns.forEach((name, i) => addText(head, 'th', i === 0 ? 'own' : '', name));
+  const thead = el('thead'); thead.append(head); t.append(thead);
+  const body = el('tbody');
+  for (const row of table.rows) {
+    const tr = el('tr'); addText(tr, 'th', '', row.label);
+    row.cells.forEach((id, i) => {
+      const td = el('td', i === 0 ? 'own' : '');
+      const item = id ? byId[id] : null;
+      if (item) { const b = addText(td, 'button', 'cell-link', tableValue(item)); b.type = 'button'; b.addEventListener('click', () => jumpTo(runId, id)); }
+      else td.textContent = '—';
+      tr.append(td);
+    });
+    body.append(tr);
+  }
+  t.append(body); wrap.append(t);
+  addText(wrap, 'div', 'compare-note', '点击数值可定位到对应证据；表内数值保留两位小数，证据中为原值。');
+  return wrap;
+}
 function renderConclusion(conclusion, byId, runId, snapshot) {
   const card = el('div', 'answer'), header = el('div', 'answer-header');
   addText(header, 'span', `tag ${conclusion.assessment}`, labels[conclusion.assessment] || conclusion.assessment);
@@ -113,18 +142,23 @@ function renderConclusion(conclusion, byId, runId, snapshot) {
   addText(header, 'span', `tag tier-${conclusion.priority.tier}`, labels[conclusion.priority.tier] || conclusion.priority.tier);
   card.append(header);
   addText(card, 'p', 'answer-text', conclusion.text);
-  if (conclusion.highlights?.length) {
+  if (conclusion.highlights?.length && !conclusion.table) {
     const chips = el('div', 'figures');
     for (const id of conclusion.highlights) {
       const item = byId[id]; if (!item) continue;
       const chip = el('button', `figure state-${item.quality.status}`); chip.type = 'button';
       addText(chip, 'span', 'figure-label', evidenceName(item));
-      addText(chip, 'strong', '', item.value === null ? (labels[item.quality.status] || '—') : `${item.value} ${item.unit || ''}`);
+      addText(chip, 'strong', '', tableValue(item));
       chip.addEventListener('click', () => jumpTo(runId, id));
       chips.append(chip);
     }
     card.append(chips);
   }
+  if (conclusion.table) card.append(renderTable(conclusion.table, byId, runId));
+  const basis = el('div', 'priority-basis');
+  addText(basis, 'span', `tag tier-${conclusion.priority.tier}`, labels[conclusion.priority.tier] || conclusion.priority.tier);
+  addText(basis, 'span', '', `优先级依据：${conclusion.priority.reason}`);
+  card.append(basis);
   addText(card, 'div', 'answer-meta', `固定快照 · 下载于 ${beijing(snapshot.created_at)} · ${conclusion.validation === 'passed' ? '受限模型文案已校验' : '程序回退文案'}`);
   if (conclusion.validation_failures?.length) addText(card, 'div', 'answer-note', `模型文案回退原因：${conclusion.validation_failures.join('、')}`);
   const list = el('div', 'evidence-list');

@@ -149,7 +149,7 @@ class WebAppTests(unittest.TestCase):
                              ("unsupported_question", "out_of_scope", categories), question)
             self.assertTrue(data["message"].startswith(f"您的提问涉及{'、'.join(categories)}，超出本模型能力范围。"))
             self.assertIn("六个维度", data["message"])
-            self.assertIn("天齐锂业全面诊断一下", data["suggestions"])
+            self.assertIn("全面诊断一下天齐锂业", data["suggestions"])
             self.assertNotIn("run", data)
         _, data = self.ask(client, "你好")
         self.assertEqual(data["reason"], "unrecognized")
@@ -239,7 +239,7 @@ class WebAppTests(unittest.TestCase):
         self.assertIn(data["runs"][0]["conclusions"][0]["required_anchor"], data["summary"]["text"])
         self.assertEqual((data["gaps"], data["clues"]), ([], None))
         self.assertEqual(data["snapshot"]["created_at"], product_payload()["created_at"])
-        _, overview = self.ask(client, "天齐锂业全面诊断一下")
+        _, overview = self.ask(client, "全面诊断一下天齐锂业")
         self.assertEqual([run["route"]["dimension"] for run in overview["runs"]],
                          ["operating_quality", "financial_trend", "valuation", "market", "industry", "risk"])
         self.assertEqual({gap["dimension"] for gap in overview["gaps"]}, {"events"})

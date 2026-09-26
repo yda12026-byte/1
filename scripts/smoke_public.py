@@ -55,7 +55,7 @@ def main() -> int:
     product = boot.get("product_snapshot", {}) if isinstance(boot, dict) else {}
     check("product snapshot time shown", bool(product.get("created_at")) and bool(product.get("id")), product.get("id", ""))
 
-    status, data, took = call(base, "/api/chat", {"question": "天齐锂业全面诊断一下"})
+    status, data, took = call(base, "/api/chat", {"question": "全面诊断一下天齐锂业"})
     runs = data.get("runs", []) if isinstance(data, dict) else []
     conclusions = [c for run in runs for c in run["conclusions"]]
     check("overview runs six dimensions", [run["route"]["dimension"] for run in runs] == DIMENSIONS,
