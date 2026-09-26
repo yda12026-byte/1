@@ -177,6 +177,42 @@ function renderClues(clues) {
   }
   return makeCollapsible(card, header, `公告与新闻待核线索（${clues.total.notices} 条公告、${clues.total.news} 条新闻）`);
 }
+const markSymbols = { positive: '↑', negative: '↓', mixed: '⇅', neutral: '·', unknown: '?' };
+function renderOverview(runs) {
+  const grid = el('div', 'dim-overview');
+  for (const run of runs) {
+    const tile = el('button', `dim-tile dim-${run.route.dimension}`); tile.type = 'button';
+    addText(tile, 'span', 'dim-tile-name', run.route.dimension_label);
+    const marks = el('span', 'dim-tile-marks');
+    for (const c of run.conclusions) {
+      const mark = addText(marks, 'span', `mark ${c.assessment}`, markSymbols[c.assessment] || '·');
+      mark.title = `${labels[c.assessment] || c.assessment}：${c.required_anchor}`;
+    }
+    tile.append(marks);
+    const lead = run.conclusions.find(c => c.type !== 'unknown') || run.conclusions[0];
+    if (lead) addText(tile, 'span', 'dim-tile-brief', lead.required_anchor);
+    tile.addEventListener('click', () => document.getElementById(`sec-${run.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    grid.append(tile);
+  }
+  return grid;
+}
+function renderProgress(question) {
+  const card = el('div', 'progress-card');
+  const head = el('div', 'progress-head');
+  head.append(el('span', 'spinner'));
+  addText(head, 'span', '', '正在诊断');
+  const time = addText(head, 'span', 'progress-time', '0 秒');
+  card.append(head);
+  const steps = el('ol', 'progress-steps');
+  for (const step of ['识别问题与维度', '读取固定快照', '程序计算指标与证据', '模型解读并校验']) addText(steps, 'li', '', step);
+  card.append(steps);
+  const broad = /全面|诊断|怎么样|整体/.test(question);
+  addText(card, 'div', 'progress-note', broad ? '全面诊断涉及六个维度，通常需要十几秒。' : '单维度问题通常需要几秒到十几秒。');
+  const node = addMessage(card);
+  const start = Date.now();
+  const timer = setInterval(() => { time.textContent = `${Math.round((Date.now() - start) / 1000)} 秒`; }, 1000);
+  return { remove() { clearInterval(timer); node.remove(); } };
+}
 function renderRuns(payload) {
   const wrap = el('div', 'runs');
   const runs = payload.runs || [payload.run];
@@ -194,9 +230,14 @@ function renderRuns(payload) {
     lead.append(tools);
     wrap.append(lead);
   }
+  if (runs.length > 1) {
+    wrap.append(renderOverview(runs));
+    addText(wrap, 'div', 'overview-legend', '维度概览　↑ 正面　↓ 负面　⇅ 矛盾　· 中性　? 未知　点击方块跳到对应维度');
+  }
   for (const run of runs) {
     const byId = Object.fromEntries(run.evidence.map(item => [item.id, item]));
     const section = el('section', `run-section dim-${run.route.dimension || 'financial_trend'}`);
+    section.id = `sec-${run.id}`;
     if (runs.length > 1 || run.route.dimension_label) addText(section, 'h3', 'run-title', run.route.dimension_label || '财务诊断');
     for (const conclusion of run.conclusions) section.append(renderConclusion(conclusion, byId, run.id, payload.snapshot));
     wrap.append(section);
@@ -227,7 +268,7 @@ function renderSuggestions(payload) {
 async function submitQuestion(question) {
   if (!question.trim() || send.disabled) return;
   addMessage(question, 'user'); input.value = ''; send.disabled = true;
-  const pending = addMessage('正在核对路由、固定快照并计算证据…');
+  const pending = renderProgress(question);
   try {
     const response = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question, context }) });
     const payload = await response.json(); pending.remove();

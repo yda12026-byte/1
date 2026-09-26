@@ -224,6 +224,10 @@ class DimensionTests(unittest.TestCase):
             known = [c for c in run.conclusions if c.type != "unknown"]
             self.assertIn(known[0].required_anchor, summary["text"])
         self.assertIn("重要事件", summary["text"])  # uncovered dimensions are named, not silently dropped
+        from diagnosis.pipeline import _summary_basis, summary_limit
+        basis = _summary_basis(runs, route)
+        self.assertEqual(summary_limit(basis), 200 + 40 * 6)
+        self.assertLessEqual(len(summary["text"]), summary_limit(basis))
         self.assertFalse(any(ch.isdigit() for ch in summary["text"]))
 
         class SummaryLLM:

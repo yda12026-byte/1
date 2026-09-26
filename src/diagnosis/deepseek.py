@@ -90,7 +90,7 @@ class DeepSeek:
             '以研究员口吻直接陈述，不要提及“程序”“锚点”“输入”等字样；pending 或 not_covered 不存在时不要提及。'
             '必须逐字包含 must_include 中的每一条锚点；pending 中的条目要说明尚待核实；not_covered 中的维度说明尚未纳入。'
             '正文不得出现任何数字或百分号，也不得出现：实时、最新、今天、当下、低估、高估、便宜、偏贵、导致、造成、因为、买入、卖出、建议。'
-            '只输出 JSON 对象 {"text":"..."}。',
+            '全文字数不得超过 max_chars；维度多时每个维度只用一句，不要逐条罗列。只输出 JSON 对象 {"text":"..."}。',
             json.dumps(basis, ensure_ascii=False), timeout=30,
         )
         text = result.get("text")
