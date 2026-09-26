@@ -26,6 +26,13 @@ function addMessage(content, kind = 'assistant') {
   if (typeof content === 'string') addText(article, 'div', '', content); else article.append(content);
   messages.append(article); scrollDown(); return article;
 }
+const metricNames = { net_profit: '净利润', operating_cash_flow: '经营活动现金流净额', cash_to_profit_ratio: '经营现金流 / 净利润' };
+function beijing(iso) {
+  const date = new Date(iso);
+  if (!iso || Number.isNaN(date.getTime())) return iso || '未知';
+  const text = new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).format(date);
+  return `${text.replaceAll('/', '-')}（北京时间）`;
+}
 function detailPair(grid, name, value) {
   if (value === undefined || value === null || value === '') return;
   addText(grid, 'dt', '', name); addText(grid, 'dd', '', value);
@@ -39,7 +46,7 @@ function renderEvidence(item, byId) {
   const body = el('div', 'evidence-body'), grid = el('dl', 'evidence-grid');
   detailPair(grid, '原始值 / 结果', item.value === null ? '未取得可用数值' : `${item.value} ${item.unit || ''}`);
   detailPair(grid, '报告期末', item.time?.period_end || '未核准');
-  detailPair(grid, '快照下载', item.time?.fetched_at || '未知');
+  detailPair(grid, '快照下载', beijing(item.time?.fetched_at));
   detailPair(grid, '统计口径', [item.scope?.period_basis, item.scope?.consolidation].filter(Boolean).join(' / '));
   detailPair(grid, '证据状态', labels[item.quality.status] || item.quality.status);
   detailPair(grid, '状态原因', item.quality.reason);
@@ -56,7 +63,7 @@ function renderEvidence(item, byId) {
     addText(grid, 'dt', '', '输入证据');
     const dd = el('dd');
     for (const id of item.calculation.input_evidence_ids || []) {
-      const button = addText(dd, 'button', 'input-link', byId[id]?.metric_id || id);
+      const button = addText(dd, 'button', 'input-link', metricNames[byId[id]?.metric_id] || id);
       button.type = 'button';
       button.addEventListener('click', () => { const target = document.getElementById(`evidence-${id.replace(/[^\w-]/g, '-')}`); if (target) { target.open = true; target.scrollIntoView({ behavior: 'smooth', block: 'center' }); } });
     }
@@ -72,7 +79,7 @@ function renderRun(payload) {
   addText(header, 'span', 'tag priority', labels[conclusion.priority.tier] || conclusion.priority.tier);
   card.append(header);
   addText(card, 'p', 'answer-text', conclusion.text);
-  addText(card, 'div', 'answer-meta', `固定快照 · ${payload.snapshot.created_at} · 报告期见下方证据 · ${conclusion.validation === 'passed' ? '受限模型文案已校验' : '程序回退文案'}`);
+  addText(card, 'div', 'answer-meta', `固定快照 · 下载于 ${beijing(payload.snapshot.created_at)} · 报告期见下方证据 · ${conclusion.validation === 'passed' ? '受限模型文案已校验' : '程序回退文案'}`);
   if (payload.resolved_question) addText(card, 'div', 'answer-note', `按受限追问解析为：${payload.resolved_question}`);
   if (conclusion.validation_failures?.length) addText(card, 'div', 'answer-note', `模型文案回退原因：${conclusion.validation_failures.join('、')}`);
   const list = el('div', 'evidence-list');
@@ -89,7 +96,7 @@ function renderPlanned(payload) {
   const fields = el('div', 'planned-fields');
   for (const field of payload.missing_evidence) {
     const row = el('div', 'planned-field'); addText(row, 'strong', '', `${field.label} · ${labels[field.priority_tier] || field.priority_tier}`);
-    addText(row, 'span', '', `候选状态：${field.candidate_status}；产品状态：数据或计算待接入；预期来源：${field.source_ref}`);
+    addText(row, 'span', '', `候选状态：${field.candidate_status}；产品状态：数据或计算待接入；预期来源：${String(field.source_ref || '未定').replaceAll('`', '')}`);
     fields.append(row);
   }
   card.append(fields); addMessage(card);
@@ -113,7 +120,7 @@ input.addEventListener('keydown', event => { if (event.key === 'Enter' && !event
 
 fetch('/api/bootstrap').then(response => response.json()).then(data => {
   const banner = document.querySelector('#snapshot-banner');
-  if (data.snapshot.status === 'fixed') banner.textContent = `固定快照已连接 · 下载时间 ${data.snapshot.created_at} · ID ${data.snapshot.id} · 观察区间 ${data.window.start} 至 ${data.window.end}`;
+  if (data.snapshot.status === 'fixed') banner.textContent = `固定快照已连接 · 下载时间 ${beijing(data.snapshot.created_at)} · ID ${data.snapshot.id} · 观察区间 ${data.window.start} 至 ${data.window.end}`;
   else { banner.classList.add('unavailable'); banner.textContent = data.snapshot.message; }
   const dimensions = document.querySelector('#dimensions');
   for (const dim of data.dimensions) { const row = el('div', 'dimension'); addText(row, 'span', '', dim.label); addText(row, 'span', `dim-status ${dim.status}`, dim.status === 'limited' ? '四类问题' : '待接入'); dimensions.append(row); }

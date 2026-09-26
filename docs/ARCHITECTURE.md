@@ -1,10 +1,10 @@
 # 架构草案
 
-状态：Python 核心后端四类受限财务问题与 72 字段问题路由已实现；部署路径已确定为 CloudBase Git 构建云托管与云存储快照，云上部署尚未执行；其他维度诊断和 Web 框架待实现。主标的是天齐锂业（002466.SZ）。
+状态：Python 核心后端四类受限财务问题与 72 字段问题路由已实现；部署路径已确定为 CloudBase Git 构建云托管与云存储快照，云上部署尚未执行；Flask 对话页面与 JSON 接口已在本地实现并验收（决策 0015）；其他维度诊断待实现。主标的是天齐锂业（002466.SZ）。
 
 ## 技术语言约定
 
-HTML 前端可使用必要的 CSS 与浏览器 JavaScript。服务端、数据适配、指标计算、LLM 调用、辅助脚本和测试使用 Python；具体 Web 框架尚未选定。原有 Node.js 探测脚本已迁移并复测。见 [`decisions/0004-python-default.md`](decisions/0004-python-default.md)。
+HTML 前端可使用必要的 CSS 与浏览器 JavaScript。服务端、数据适配、指标计算、LLM 调用、辅助脚本和测试使用 Python；Web 框架为 Flask，云托管入口为 Gunicorn（决策 0015）。原有 Node.js 探测脚本已迁移并复测。见 [`decisions/0004-python-default.md`](decisions/0004-python-default.md)。
 
 ## 用户主链路
 
@@ -29,11 +29,15 @@ HTML 前端可使用必要的 CSS 与浏览器 JavaScript。服务端、数据�
 
 当前仅能执行四个受限财务意图，来源仍只有两项扶摇年报字段；iFinD 尚未进入固定快照产品链路。路由已覆盖候选表 72 条，可检查未实现维度的字段需求，但其他维度的计算、结论及 Web 钻取尚未实现。`report_date_ms` 暂不当作实际披露日。结构细节见 [数据契约](data-contract.md)与[决策 0008](decisions/0008-question-route-catalog.md)。
 
+## 已实现：对话页面与接口
+
+`webapp.py` 用 Flask 提供页面（`web/templates`、`web/static`）和接口：`/healthz`、`/api/bootstrap`、`/api/chat`。提问先经服务端有限追问解析（固定短句 + 已校验的上一轮意图，不信任客户端上下文），再走 `route_question`：可执行意图读快照、计算、LLM 受限翻译并返回 `DiagnosisRun`；`planned` 只返回字段缺口；`unsupported` 拒答；快照缺失或校验失败返回 503。规则已判出可执行意图时不调用 LLM 分类。页面用 `textContent` 渲染全部数据，浏览器不接触密钥与快照文件。详见[决策 0015](decisions/0015-web-chat-and-api.md)。
+
 ## 待确定事项
 
 - 公司业务与行业比较口径、可用数据范围
 - 具体数据接口及其授权/调用限制
-- Python Web 框架、云托管构建入口、端口及实际挂载路径（部署平台已确定为 CloudBase）
+- CloudBase 实际挂载路径与云上端口验证（框架 Flask、入口 Gunicorn、默认端口 8080 已定）
 - 同行口径与数据新鲜度阈值
 
 每项确定后在 `decisions/` 记录理由，并同步更新本文件。

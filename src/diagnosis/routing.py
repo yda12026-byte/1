@@ -95,7 +95,9 @@ def route_question(question: str, llm=None) -> dict:
     method = "deterministic_fallback"
     # A multi-dimensional question retains all matching dimensions. An LLM
     # may choose only from the fixed single-intent list for other questions.
-    if llm is not None and intent != "multi_dimension" and not any(word in question for word in ADVICE_WORDS):
+    # An executable rule match is final: the LLM could only confirm it.
+    if llm is not None and intent != "multi_dimension" and intent not in EXECUTABLE_FIELDS and \
+            not any(word in question for word in ADVICE_WORDS):
         try:
             proposed = llm.classify(question)
             allowed = proposed in INTENTS or proposed == "unsupported"

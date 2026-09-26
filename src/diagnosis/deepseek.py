@@ -27,7 +27,7 @@ class DeepSeek:
         request = Request(self.url, data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
                           headers={"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"},
                           method="POST")
-        with open_direct(request, timeout=20) as response:
+        with open_direct(request, timeout=12) as response:
             body = json.load(response)
         content = body["choices"][0]["message"]["content"].strip()
         if content.startswith("```json"):
@@ -75,6 +75,8 @@ class DeepSeek:
             '你只把已有结论翻译成简洁中文，不新增事实、因果、数字或投资建议。数据来自一次性固定快照，不是实时数据。严格遵守 cannot_say。'
             'priority 的 driver/support/context/low 表示研究重要性，优先突出有效的高优先级证据；低优先级证据仅在直接提问或必要背景时简述。'
             '优先级不能把缺失、冲突或错误证据变成事实，也不能改变公式或程序结论。高优先级证据缺失时保留未知状态。'
+            '正文只陈述结论本身，不写限制、免责声明或“不能/不代表”类句子，也不复述 cannot_say 与 limitations；页面会单独展示它们。'
+            '正文不得出现这些词，即使用于否定：实时、最新、今天、当下、造假、导致、造成、因为、买入、卖出。'
             '只输出 JSON 对象 {"text":"...","evidence_ids":["..."]}。正文必须逐字包含 required_anchor，'
             '不要出现数字或百分号；evidence_ids 包含所用的所有来源证据 ID。',
             json.dumps(summary, ensure_ascii=False),
