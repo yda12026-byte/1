@@ -191,7 +191,12 @@ function renderOverview(runs) {
     tile.append(marks);
     const lead = run.conclusions.find(c => c.type !== 'unknown') || run.conclusions[0];
     if (lead) addText(tile, 'span', 'dim-tile-brief', lead.required_anchor);
-    tile.addEventListener('click', () => document.getElementById(`sec-${run.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    tile.addEventListener('click', () => {
+      const section = document.getElementById(`sec-${run.id}`);
+      if (!section) return;
+      section.querySelectorAll('.answer.collapsed').forEach(card => setCollapsed(card, false));
+      section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
     grid.append(tile);
   }
   return grid;
@@ -244,6 +249,7 @@ function renderRuns(payload) {
   }
   if (payload.clues) { addText(wrap, 'h3', 'run-title', '重要事件'); wrap.append(renderClues(payload.clues)); }
   if (payload.gaps?.length) { addText(wrap, 'h3', 'run-title', '尚未接入的维度'); wrap.append(renderGaps(payload.gaps, '以下维度的优先字段尚未接入，仅列证据缺口，不构成诊断。')); }
+  if (runs.length > 1) wrap.querySelectorAll('.answer').forEach(card => card.querySelector('.collapse-btn') && setCollapsed(card, true));
   addMessage(wrap);
 }
 function renderPlanned(payload) {
@@ -267,7 +273,7 @@ function renderSuggestions(payload) {
 }
 async function submitQuestion(question) {
   if (!question.trim() || send.disabled) return;
-  addMessage(question, 'user'); input.value = ''; send.disabled = true;
+  const asked = addMessage(question, 'user'); input.value = ''; send.disabled = true;
   document.querySelector('.composer-wrap')?.classList.add('compact');
   const pending = renderProgress(question);
   try {
@@ -279,7 +285,7 @@ async function submitQuestion(question) {
     else if (payload.suggestions?.length) renderSuggestions(payload);
     else addMessage(payload.message || '当前无法完成诊断。');
   } catch (_) { pending.remove(); context = null; addMessage('服务连接失败，请稍后重试。'); }
-  finally { send.disabled = false; input.focus(); scrollDown(); }
+  finally { send.disabled = false; input.focus({ preventScroll: true }); asked.scrollIntoView({ block: 'start' }); }
 }
 form.addEventListener('submit', event => { event.preventDefault(); submitQuestion(input.value.trim()); });
 input.addEventListener('keydown', event => { if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) { event.preventDefault(); form.requestSubmit(); } });
