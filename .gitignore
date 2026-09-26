@@ -26,6 +26,9 @@ data/cache/
 *.sqlite3
 *.db
 
+# Local submission media
+/产品演示.mp4
+
 # OS/editor files
 .DS_Store
 Thumbs.db
