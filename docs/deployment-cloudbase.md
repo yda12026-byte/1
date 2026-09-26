@@ -65,3 +65,11 @@ Git 构建只能读取已推送的提交。首次部署前需完成代码、文�
 - `docs/todo/TODO.md` 中部署相关三项；
 - 当天工作日志与 AI 使用记录；
 - 本清单的本节。
+
+### Codex 接手核查（2026-09-26 13:36 北京时间）
+
+- 直接读取部署记录 `005`（第二次选择“云开发云存储”）：Git 检出、Docker 构建及推送成功；实例创建时 `side-dns-cache` 的 `/mount.sh` 报 `Warn:option url has invalid format:cos.ap-shanghai.myqcloud.com`，与第一次相同。错误发生在平台的 cosfs 启动阶段，尚未到应用读取快照或鉴权检查。
+- 控制台挂载表单只提供桶、对象目录、实例目录和连接密钥，没有 COS URL/endpoint 的可编辑项。按路径 A 将对象目录改为无结尾斜杠的 `/snapshots/002466`，使用既有连接密钥发布试验版本 `008`，随后取消该试验版本发布。重新核对 `008`：镜像构建和推送成功，部署日志只记录到 `create_eks_virtual_service : creating` 与 `check_eks_virtual_service : process, DescribeVersion_empty`，页面最终显示“创建失败”，实例列表为 0；日志**没有** cosfs URL 格式错误。只读任务详情进一步返回 `Status: stopped`、`FailReason: ""`，`CreateVersion` 步骤仍为 `running`，证实该任务被停止，并非一次已记录 cosfs 报错的挂载失败。
+- 当前线上无挂载版本 `007` 的 `/healthz` 为 200，但 `profit_cash`、`product` 均为 `missing`。尚未运行 21 项公网验收，也未验证重启后的 ID。
+- COS 对象详情显示**实际对象地址**为桶内 `snapshots/product_snapshot_002466.json`，同目录另有 `profit_cash_002466.json`；交接原写的 `snapshots/002466/` 与实际地址不一致。产品对象仍为 12:25 上传的旧文件（控制台显示 297.32KB），本地新文件 ID `f15e78c2f368f02b87e7`、大小 322118 字节。匿名 HEAD 请求该旧对象得到 403。重新上传时须核对准确对象名、覆盖后 ID 和私有权限。
+- `004`、`005` 的 cosfs URL 格式错误仍待解决。经用户完成账号验证后，使用只读 `DescribeCloudRunServerDetail` 查询当前服务配置：挂载 `Type=COS`、`Endpoint=cos.ap-shanghai.myqcloud.com`（无协议）、`SrcPath=/snapshots/002466`、`DstPath=/mnt/snapshots`、`ReadOnly=false`，且配置中存在连接密钥引用；未输出其值。说明无协议 Endpoint 确实保存在当前服务配置中，而不只是日志格式问题。用户明确不采用路径 B，未实施启动下载；尚未调用配置修改接口或发起新部署。注意本节以上旧交接内容是当时状态，以上实测为当前状态。
