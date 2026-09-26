@@ -218,7 +218,7 @@
       "candidate_status": "已取值",
       "review_note": "同期比较；核对指标是否累计口径。",
       "kind": "source",
-      "product_state": "pending"
+      "product_state": "implemented"
     },
     {
       "id": "f017",
@@ -244,7 +244,7 @@
       "candidate_status": "已取值",
       "review_note": "绝对值与增速一起看。",
       "kind": "composite",
-      "product_state": "pending"
+      "product_state": "implemented"
     },
     {
       "id": "f019",
@@ -340,7 +340,7 @@
       "candidate_status": "已取值",
       "review_note": "同时是自由现金流近似值的计算输入；不能等同全部资本开支。",
       "kind": "source",
-      "product_state": "pending"
+      "product_state": "implemented"
     },
     {
       "id": "f026",
@@ -353,7 +353,7 @@
       "candidate_status": "可计算",
       "review_note": "标为“近似”，不等同公司披露的自由现金流。",
       "kind": "computed",
-      "product_state": "pending",
+      "product_state": "implemented",
       "formula_id": "operating_cash_flow_minus_fixed_asset_cash",
       "input_fields": [
         "act_cash_flow_net",
@@ -369,7 +369,7 @@
         "fuyao"
       ],
       "candidate_status": "可计算",
-      "review_note": "净现金是自算；债务覆盖范围要核对。",
+      "review_note": "2026-09-26 核实：扶摇 `total_debt` = 总资产 − 所有者权益，是负债合计而非有息债务，不能据此称净现金；产品只展示“货币资金减负债合计”（决策 0016），本项仍待有息债务口径。",
       "kind": "computed",
       "product_state": "pending",
       "formula_id": "cash_minus_total_debt",
@@ -389,7 +389,7 @@
       "candidate_status": "已取值",
       "review_note": "与借款口径、权益变化一起看。",
       "kind": "source",
-      "product_state": "pending"
+      "product_state": "implemented"
     },
     {
       "id": "f029",
@@ -468,7 +468,7 @@
       "candidate_status": "已取值",
       "review_note": "盈利为负或接近零时不作低估/高估判断。",
       "kind": "source",
-      "product_state": "pending"
+      "product_state": "implemented"
     },
     {
       "id": "f035",
@@ -481,7 +481,7 @@
       "candidate_status": "已取值",
       "review_note": "核对 MRQ 年化定义后再解释。",
       "kind": "source",
-      "product_state": "pending"
+      "product_state": "implemented"
     },
     {
       "id": "f036",
@@ -494,7 +494,7 @@
       "candidate_status": "已取值",
       "review_note": "与历史 PB 分位比较时必须统一来源和口径。",
       "kind": "source",
-      "product_state": "pending"
+      "product_state": "implemented"
     },
     {
       "id": "f037",
@@ -507,7 +507,7 @@
       "candidate_status": "已取值",
       "review_note": "不反映利润率和现金流质量。",
       "kind": "source",
-      "product_state": "pending"
+      "product_state": "implemented"
     },
     {
       "id": "f038",
@@ -520,7 +520,7 @@
       "candidate_status": "已取值",
       "review_note": "经营现金流为负时不宜按普通倍数排序。",
       "kind": "source",
-      "product_state": "pending"
+      "product_state": "implemented"
     },
     {
       "id": "f039",
@@ -533,7 +533,7 @@
       "candidate_status": "部分可用",
       "review_note": "返回 2023-09-26 至 2026-09-26 的 100 个日期点；含非交易日，采样频率、负 PE 处理和分位算法待定。",
       "kind": "source",
-      "product_state": "pending"
+      "product_state": "implemented"
     },
     {
       "id": "f040",
@@ -546,7 +546,7 @@
       "candidate_status": "部分可用",
       "review_note": "已取一个同行样本；正式可比组、负值处理和同日口径待定。",
       "kind": "source",
-      "product_state": "pending"
+      "product_state": "implemented"
     },
     {
       "id": "f041",
@@ -573,7 +573,7 @@
       "candidate_status": "已取值",
       "review_note": "已取近 60 自然日、42 条；说明前复权。",
       "kind": "source",
-      "product_state": "pending"
+      "product_state": "implemented"
     },
     {
       "id": "f043",
@@ -600,7 +600,7 @@
       "candidate_status": "可计算",
       "review_note": "扶摇已返回 123 条前复权日 K；输入充足，区间计算尚未写入产品。",
       "kind": "computed",
-      "product_state": "pending",
+      "product_state": "implemented",
       "formula_id": "adjusted_close_return_20_60",
       "input_fields": [
         "forward_adjusted_daily_close"
@@ -616,9 +616,9 @@
         "price_series"
       ],
       "candidate_status": "已取值",
-      "review_note": "iFinD 分别返回回撤和年化波动率；同一观察窗口和复权口径仍需统一。",
+      "review_note": "iFinD 风险指标为周频、不复权；产品改用前复权日线自算最大回撤与年化波动率（决策 0016）。",
       "kind": "source",
-      "product_state": "pending"
+      "product_state": "implemented"
     },
     {
       "id": "f046",
@@ -631,7 +631,7 @@
       "candidate_status": "可计算",
       "review_note": "原始日 K 已取；需固定 N 日窗口。",
       "kind": "computed",
-      "product_state": "pending",
+      "product_state": "implemented",
       "formula_id": "volume_vs_n_day_average",
       "input_fields": [
         "daily_volume"
@@ -647,9 +647,9 @@
         "price_series"
       ],
       "candidate_status": "部分可用",
-      "review_note": "板块涨跌幅可查，但个股与行业同区间、同分类的比较尚未完成。",
+      "review_note": "已实现月度复合比较，但 2026-05 行业窗口返回算术平均加权、其余月份为总市值加权，产品标为冲突、不输出相对表现（决策 0016）。",
       "kind": "source",
-      "product_state": "pending"
+      "product_state": "implemented"
     },
     {
       "id": "f048",
@@ -675,7 +675,7 @@
       "candidate_status": "已取值",
       "review_note": "已查询到板块数据；还未与天齐同区间对齐。",
       "kind": "composite",
-      "product_state": "pending"
+      "product_state": "implemented"
     },
     {
       "id": "f050",
@@ -688,7 +688,7 @@
       "candidate_status": "已取值",
       "review_note": "不能直接当电池级或公司销售均价。",
       "kind": "source",
-      "product_state": "pending"
+      "product_state": "implemented"
     },
     {
       "id": "f051",
@@ -701,7 +701,7 @@
       "candidate_status": "已取值",
       "review_note": "两项日序列已取；品级、地点、币种和单位分别注明。",
       "kind": "source",
-      "product_state": "pending"
+      "product_state": "implemented"
     },
     {
       "id": "f052",
@@ -714,7 +714,7 @@
       "candidate_status": "已取值",
       "review_note": "日序列已取；活跃合约换月与现货不可混用。",
       "kind": "source",
-      "product_state": "pending"
+      "product_state": "implemented"
     },
     {
       "id": "f053",
@@ -727,7 +727,7 @@
       "candidate_status": "部分可用",
       "review_note": "候选同行赣锋锂业（002460.SZ）的对应数据已实测；完整可比组与统一口径尚未确定。",
       "kind": "source",
-      "product_state": "pending"
+      "product_state": "implemented"
     },
     {
       "id": "f054",
@@ -740,7 +740,7 @@
       "candidate_status": "部分可用",
       "review_note": "候选同行赣锋锂业的估值快照和 123 条日 K 已实测；可比组、同日和同区间处理待定。",
       "kind": "source",
-      "product_state": "pending"
+      "product_state": "implemented"
     },
     {
       "id": "f055",

@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import re
 
-from .catalog import CATALOG_VERSION, EXECUTABLE_FIELDS, IMPLEMENTED_FIELD_IDS, INTENTS, SUBJECT, WINDOW, load_catalog
+from .catalog import (CATALOG_VERSION, COVERED_YEARS, DIMENSION_EXECUTABLE, EXECUTABLE_FIELDS, IMPLEMENTED_FIELD_IDS,
+                      INTENTS, SUBJECT, WINDOW, load_catalog)
 from .priority import load_priority_profile, make_display_plan
 
 KEYWORDS = {
     "operating_quality": ("经营", "主营", "业务", "毛利", "产能", "研发", "营收"),
-    "financial_trend": ("财务", "利润", "盈利", "现金流", "收入", "ROE", "资产负债"),
+    "financial_trend": ("财务", "利润", "盈利", "现金流", "收入", "营收", "ROE", "资产负债"),
     "valuation": ("估值", "市盈率", "市净率", "PE", "PB", "贵吗", "便宜吗"),
     "market": ("行情", "股价", "涨跌", "成交", "波动", "回撤", "走势"),
     "industry": ("行业", "同行", "锂价", "碳酸锂", "竞争"),
@@ -86,6 +87,20 @@ def _fallback(question: str) -> tuple[str, tuple[str, ...]]:
     return "unsupported", ()
 
 
+def _execution_status(intent: str, dimensions: tuple[str, ...], question: str) -> str:
+    if intent == "unsupported":
+        return "unsupported"
+    if intent in EXECUTABLE_FIELDS:
+        return "implemented"
+    # A named year outside the snapshot's report periods must not be answered with other periods.
+    if any(year not in COVERED_YEARS for year in re.findall(r"(20\d{2})\s*年", question)):
+        return "planned"
+    runnable = [dimension for dimension in dimensions if dimension in DIMENSION_EXECUTABLE]
+    if not runnable:
+        return "planned"
+    return "implemented" if len(runnable) == len(dimensions) else "partial"
+
+
 def route_question(question: str, llm=None) -> dict:
     """Plan a route without reading data or making a financial conclusion."""
     if not isinstance(question, str) or not question.strip():
@@ -133,7 +148,10 @@ def route_question(question: str, llm=None) -> dict:
         "method": method,
         "config_version": CATALOG_VERSION,
         "window": WINDOW.copy(),
-        "execution_status": "implemented" if intent in EXECUTABLE_FIELDS else "unsupported" if intent == "unsupported" else "planned",
+        "execution_status": _execution_status(intent, dimensions, question),
+        "runnable_dimensions": [] if intent in EXECUTABLE_FIELDS else
+                               [dimension for dimension in dimensions if dimension in DIMENSION_EXECUTABLE]
+                               if _execution_status(intent, dimensions, question) != "planned" else [],
         "fields": fields_with_priority,
         "field_ids": [field["id"] for field in selected],
         "display_plan": display_plan,

@@ -41,7 +41,12 @@ EXECUTABLE_FIELDS = {
     "operating_cash_flow_status": ("f022",),
     "profit_cash_ratio": ("f021", "f022", "f024"),
 }
-IMPLEMENTED_FIELD_IDS = frozenset(SPECIAL_FIELD_IDS)
+# Dimensions answered from the fixed product snapshot (decision 0016).
+DIMENSION_EXECUTABLE = ("financial_trend", "valuation", "market", "industry")
+DIMENSION_FIELD_IDS = ("f016", "f018", "f025", "f026", "f028", "f034", "f035", "f036", "f037", "f038", "f039",
+                       "f040", "f042", "f044", "f045", "f046", "f047", "f049", "f050", "f051", "f052", "f053", "f054")
+COVERED_YEARS = ("2025", "2026")
+IMPLEMENTED_FIELD_IDS = frozenset(SPECIAL_FIELD_IDS + DIMENSION_FIELD_IDS)
 IMPLEMENTED_LABELS = {
     "f021": "净利润", "f022": "经营活动现金流净额",
     "f024": "经营现金流 / 净利润", "f066": "利润与经营现金流背离",

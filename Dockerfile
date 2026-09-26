@@ -8,4 +8,4 @@ COPY config/ ./config/
 COPY web/ ./web/
 COPY webapp.py ./
 EXPOSE 8080
-CMD ["sh", "-c", "exec gunicorn --bind 0.0.0.0:${PORT:-8080} --workers 2 --timeout 45 webapp:app"]
+CMD ["sh", "-c", "exec gunicorn --bind 0.0.0.0:${PORT:-8080} --workers 2 --timeout 60 webapp:app"]

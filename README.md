@@ -4,7 +4,7 @@
 
 ## 当前状态
 
-目标个股为**天齐锂业（002466.SZ）**；选择理由见[决策记录](docs/decisions/0003-target-stock.md)。Python 核心后端现可回答四类受限财务问题，并已有本地可操作的对话页面（Flask）：可点击示例、有限追问、钻取证据，其余维度显示字段缺口。公开部署地址尚未完成。部署路径已确定为 CloudBase 云托管从 Git 构建代码、云存储保存固定快照，尚未进行云上实测。DeepSeek、扶摇和 iFinD 的本地访问已验证，现有辅助探测脚本也已统一为 Python。
+目标个股为**天齐锂业（002466.SZ）**；选择理由见[决策记录](docs/decisions/0003-target-stock.md)。本地可操作的对话页面（Flask）现可诊断**估值、财务趋势、行情特征、行业位置**四维：每条结论可钻取到公式、输入证据与原始文件定位；重要事件只列公告/新闻待核检索线索；经营质量与风险显示证据缺口。四类窄财务问题与有限追问继续可用。见[决策 0016](docs/decisions/0016-core-four-dimensions-snapshot.md)。公开部署地址尚未完成。部署路径已确定为 CloudBase 云托管从 Git 构建代码、云存储保存固定快照，尚未进行云上实测。DeepSeek、扶摇和 iFinD 的本地访问已验证，现有辅助探测脚本也已统一为 Python。
 
 产品数据截止日定为 **2026-08-31**，统一观察区间为 **2025-08-31 至 2026-08-31**；财务同比允许使用更早的比较基期。2026 年 8 月的[实验下载审计](docs/experiments/2026-08-one-month-data-audit.md)已完成，但实验原始数据尚未发布为完整产品快照。
 
@@ -18,6 +18,7 @@
 py -m pip install -r requirements.txt
 py webapp.py   # 打开 http://127.0.0.1:8080
 py scripts/download_data.py
+py scripts/build_product_snapshot.py   # 一次性：由一年原始文件生成完整产品快照
 py scripts/route_question.py "天齐锂业的估值和行业位置如何？"
 py scripts/diagnose_question.py "天齐锂业的净利润是正还是负？"
 py scripts/diagnose_question.py "天齐锂业的经营活动现金流净额为正吗？"
@@ -29,6 +30,8 @@ py -m unittest discover -s tests -p 'test_*.py' -v
 Web 页面（`webapp.py`）提供 `GET /healthz`、`GET /api/bootstrap` 和 `POST /api/chat`；状态语义、有限追问规则与 LLM 分工见[决策 0015](docs/decisions/0015-web-chat-and-api.md)。页面显示快照下载时间（北京时间）和快照 ID，每条证据可展开来源、报告期、口径、优先级及计算输入；快照缺失或校验失败时返回不可用状态。容器入口为 `Dockerfile`（Gunicorn），镜像不含 `data/`。
 
 首次准备时执行一次 `py scripts/download_data.py`。它把当前两项标准化年报字段写入被 Git 忽略的 `data/cache/profit_cash_002466.json`；文件一旦存在，脚本不再次下载或覆盖。`route_question.py` 只展示问题对应的维度、候选字段、优先展示字段、来源和待核准状态，不读取金融数据。天齐锂业的默认展示优先关注锂价、分业务量价成本、利润现金、存货及债务风险；研发费用等仅在专门提问或钻取时突出。全部 72 条候选仍可检查。诊断只读固定快照，**不会在用户提问时请求扶摇或 iFinD**。结果包含快照 ID、下载时间、证据和 `cannot_say` 校验状态；页面文案应标注“截至快照时间”，不能称实时或最新。DeepSeek 不可用或文案不通过校验时使用确定性文案。现可执行净利润正负、经营现金流正负、两者比值和方向关系四类问题。同比、指定年份、绝对差额、估值、行业及全面财务问题仍只显示规划路由，不生成诊断；iFinD 产品字段尚待一次性准备。旧命令 `py scripts/diagnose_profit_cash.py` 仍可用。结构与边界见[数据契约](docs/data-contract.md)及[决策 0010](docs/decisions/0010-company-specific-display-priority.md)。
+
+完整产品快照 `data/cache/product_snapshot_002466.json` 由 `py scripts/build_product_snapshot.py` 从 Git 忽略的一年原始文件一次性生成，已存在不覆盖；其路径默认与两字段快照同目录，也可用 `DIAGNOSIS_PRODUCT_SNAPSHOT_PATH` 指定。缺失或校验失败时四维问题返回“不可用”，窄问题不受影响。
 
 部署时拟将已核准发布快照存入 CloudBase 云存储，挂载到云托管实例，再由 `DIAGNOSIS_SNAPSHOT_PATH` 指向容器内的准确文件路径；真实数据不放入公开仓库或构建镜像。该变量留空时读取上述本地路径。完整快照模式、挂载和公开 URL 尚未实现，详见[CloudBase 部署清单](docs/deployment-cloudbase.md)和[决策 0012](docs/decisions/0012-cloudbase-git-and-storage-deployment.md)。
 

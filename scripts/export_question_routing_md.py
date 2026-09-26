@@ -126,9 +126,9 @@ def render() -> str:
         "",
         "净利润或经营现金流单项问题只引用对应的一项来源。比值和方向关系问题需要两项来源的报告期、累计/单季口径、合并口径及单位一致。比值分母非正、输入缺失或期次不齐时不产生普通比值。",
         "",
-        "## 二、已规划但尚不能生成结论的问题",
+        "## 二、按维度展开的问题",
         "",
-        "这些类别目前只返回字段需求清单（`planned`），不会读取快照或生成金融结论。`全部候选` 是可钻取范围；`默认优先字段` 是未来有限首屏输出的规划，不代表已取得有效证据。",
+        "估值、财务趋势、行情特征、行业位置四维读取完整产品快照并生成结论（`implemented`，决策 0016）；经营质量、重要事件、风险只返回字段需求清单（`planned`），事件另列待核检索线索。组合问题含未接入维度时为 `partial`。`全部候选` 是可钻取范围；`默认优先字段` 是首屏字段规划，不等于每个字段都已有有效证据。",
         "",
         "| 问题类别 | 示例问题 | 展开维度 | 全部候选 | 默认优先字段 |",
         "| --- | --- | --- | ---: | --- |",
@@ -181,7 +181,8 @@ def render() -> str:
             "| --- | --- | --- | --- | --- | --- | --- |",
         ]
         for field in selected:
-            product_state = "已接入窄问题" if field["id"] in IMPLEMENTED_FIELD_IDS else "待接入 / 待核准"
+            product_state = ("已接入窄问题" if field["id"] in EXECUTABLE_FIELDS["profit_cash_alignment"] else "已接入维度诊断") \
+                if field["id"] in IMPLEMENTED_FIELD_IDS else "待接入 / 待核准"
             tier, reason = profile["fields"][field["id"]]
             priority = f"{profile['tier_labels'][tier]}：{reason}"
             lines.append(f"| `{field['id']}` | {_cell(field['label'])} | {_cell(priority)} | {_cell(field['source_ref'])} | {_cell(_calc(field))} | {field['candidate_status']} | {product_state} |")

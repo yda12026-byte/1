@@ -11,6 +11,7 @@ PROHIBITED_PATTERNS = {
     "NO_PROFIT_QUALITY_CERTAINTY": r"(?:盈利|利润)质量.{0,4}(?:确定|证明|完全|没有问题)",
     "NO_UNSUPPORTED_CAUSALITY": r"导致|造成|因为|归因于|源于|主要原因是",
     "NO_LIVE_DATA": r"实时|最新|今天|刚刚|当前行情|截至目前|当下",
+    "NO_VALUATION_JUDGMENT": r"低估|高估|便宜|偏贵|昂贵|估值洼地|安全边际|性价比",
 }
 
 
@@ -50,8 +51,8 @@ def validate_narrative(candidate: dict, conclusion: Conclusion, evidence: list[E
     return failures
 
 
-def apply_narrative(run: DiagnosisRun, candidate: dict) -> DiagnosisRun:
-    conclusion = run.conclusions[0]
+def apply_narrative(run: DiagnosisRun, candidate: dict, index: int = 0) -> DiagnosisRun:
+    conclusion = run.conclusions[index]
     failures = validate_narrative(candidate, conclusion, run.evidence)
     conclusion.text = candidate["text"].strip() if not failures else conclusion.fallback_text
     conclusion.validation = "passed" if not failures else "fallback"

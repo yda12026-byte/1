@@ -8,7 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from diagnosis.catalog import DIMENSIONS, SPECIAL_FIELD_IDS, load_catalog
+from diagnosis.catalog import DIMENSIONS, EXECUTABLE_FIELDS, SPECIAL_FIELD_IDS, load_catalog
 from diagnosis.pipeline import diagnose_profit_cash
 from diagnosis.priority import load_priority_profile
 from diagnosis.routing import route_question
@@ -39,17 +39,20 @@ class RouterTests(unittest.TestCase):
         self.assertEqual(route["execution_status"], "implemented")
         self.assertEqual(route["window"]["cutoff"], "2026-08-31")
 
-    def test_dimension_and_multi_dimension_expand_without_claiming_implementation(self):
+    def test_dimension_and_multi_dimension_expand_with_runnable_subset(self):
         valuation = route_question("估值如何？")
         self.assertEqual(valuation["dimensions"], ["valuation"])
-        self.assertEqual(valuation["execution_status"], "planned")
+        self.assertEqual(valuation["execution_status"], "implemented")
         self.assertEqual(len(valuation["field_ids"]), 7)
-        self.assertEqual(valuation["implemented_field_ids"], [])
+        self.assertEqual(len(valuation["implemented_field_ids"]), 7)
         multi = route_question("估值和行业位置如何？")
         self.assertEqual(multi["intent"], "multi_dimension")
         self.assertEqual(set(multi["dimensions"]), {"valuation", "industry"})
+        self.assertEqual(multi["execution_status"], "implemented")
         self.assertEqual(len(multi["field_ids"]), 15)
-        self.assertEqual(len(route_question("全面诊断一下")["field_ids"]), 72)
+        self.assertIn("f003", multi["pending_field_ids"])  # peer list is a decision, not a runtime field
+        overview = route_question("全面诊断一下")
+        self.assertEqual((len(overview["field_ids"]), overview["execution_status"]), (72, "partial"))
 
     def test_planned_or_advice_question_does_not_read_snapshot(self):
         provider = lambda: self.fail("data provider should not run")
@@ -75,7 +78,7 @@ class RouterTests(unittest.TestCase):
 
         route = route_question("估值如何？", WrongClassifier())
         self.assertEqual(route["intent"], "valuation")
-        self.assertEqual(route["execution_status"], "planned")
+        self.assertEqual(route["runnable_dimensions"], ["valuation"])
         result = diagnose_profit_cash("估值如何？", lambda: self.fail("provider should not run"), WrongClassifier())
         self.assertEqual(result["status"], "not_implemented")
 
@@ -93,10 +96,13 @@ class RouterTests(unittest.TestCase):
                 self.assertEqual(route["execution_status"], "implemented")
 
     def test_narrow_route_does_not_answer_trends_specific_years_or_advice(self):
-        for question in ("净利润同比增长了吗？", "经营现金流过去一年趋势如何？",
-                         "经营现金流在2024年为正吗？", "净利润和经营现金流相差多少？"):
+        # Trend questions go to the financial dimension run, never to a single-period narrow intent.
+        for question in ("净利润同比增长了吗？", "经营现金流过去一年趋势如何？", "净利润和经营现金流相差多少？"):
             with self.subTest(question=question):
-                self.assertEqual(route_question(question)["execution_status"], "planned")
+                route = route_question(question)
+                self.assertNotIn(route["intent"], EXECUTABLE_FIELDS)
+                self.assertEqual(route["runnable_dimensions"], ["financial_trend"])
+        self.assertEqual(route_question("经营现金流在2024年为正吗？")["execution_status"], "planned")
         self.assertEqual(route_question("净利润为正，值得买吗？")["execution_status"], "unsupported")
 
     def test_llm_cannot_misroute_new_executable_intents(self):
@@ -111,8 +117,9 @@ class RouterTests(unittest.TestCase):
             with self.subTest(question=question):
                 route = route_question(question)
                 self.assertEqual(route["intent"], "multi_dimension")
-                self.assertEqual(route["execution_status"], "planned")
-                self.assertIn("financial_trend", route["dimensions"])
+                self.assertIn(route["execution_status"], ("implemented", "partial"))
+                self.assertIn("financial_trend", route["runnable_dimensions"])
+                self.assertGreater(len(route["dimensions"]), 1)
 
     def test_company_profile_covers_all_fields_and_prioritizes_price_cycle(self):
         profile = load_priority_profile()

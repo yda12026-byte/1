@@ -7,7 +7,7 @@ from .priority import PROFILE_VERSION, TIERS, priority_for_field
 
 EvidenceStatus = Literal["valid", "missing", "stale", "conflict", "error", "not_applicable"]
 ConclusionType = Literal["fact", "inference", "unknown"]
-Assessment = Literal["positive", "negative", "mixed", "unknown"]
+Assessment = Literal["positive", "negative", "mixed", "neutral", "unknown"]
 
 
 @dataclass
@@ -24,6 +24,7 @@ class Evidence:
     priority: dict
     source: dict | None = None
     calculation: dict | None = None
+    label: str | None = None
 
 
 @dataclass(frozen=True)
@@ -49,6 +50,7 @@ class Conclusion:
     priority: dict
     validation: Literal["fallback", "passed"] = "fallback"
     validation_failures: list[str] = field(default_factory=list)
+    highlights: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -118,6 +120,8 @@ def validate_run(run: DiagnosisRun) -> DiagnosisRun:
             raise ValueError("invalid conclusion classification")
         if not conclusion.evidence_links or not conclusion.cannot_say or not conclusion.required_anchor:
             raise ValueError("conclusion lacks links, cannot_say, or anchor")
+        if any(item not in by_id for item in conclusion.highlights):
+            raise ValueError("conclusion highlight is not an evidence ID")
         for link in conclusion.evidence_links:
             if link.get("evidence_id") not in by_id or link.get("role") not in ("supports", "counters", "context"):
                 raise ValueError("invalid evidence link")

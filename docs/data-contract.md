@@ -77,6 +77,15 @@
 - **特殊状态**：除复权事件 `code=3002` 记为 `source_no_matching_events`，文案为“该请求范围无匹配事件”；个股异动原因 `f048` 记为 `historical_interface_unavailable`，首屏不作当期结论但保留钻取。
 - 上述口径不改变 `Evidence.quality.status`：未完成单位、报告期、披露日与来源定位核对的字段，仍以对应缺口状态呈现。
 
+## 完整产品快照与四维计算（决策 0016）
+
+- **文件**：`data/cache/product_snapshot_002466.json`，`schema_version=2`、`kind=product`，内容摘要 `snapshot_id`；由 `scripts/build_product_snapshot.py` 一次性生成，已存在不覆盖。`raw_manifest` 记录 142 个原始文件名与 SHA-256 前 16 位；每个数据块写明提供方、接口/工具、查询和原始文件。读取时校验版本、标的、摘要和时区；缺失或失败返回“不可用”，不退回原始文件或构造样本。
+- **交易日**：以扶摇 002466 前复权日线 242 个交易日为日历；四只股票日线须与之完全对齐，否则拒绝生成。估值与 EDB 序列按日历过滤并记录剔除行数。
+- **单位**：报表金额在证据中换算为亿元（元 ÷ 1e8，保留四位），`scope.unit_conversion` 标注；比率单位为 %、倍或次；锂价为元/吨。
+- **计算证据**：`calculation.formula_text` 给出可读公式，`input_evidence_ids` 指向同一运行对象内的来源证据，`summary` 可附序列最小/最大/中位数/样本数。同比 = (本期 − 基期) ÷ |基期| × 100，与扶摇同名比率差超 0.1 个百分点标 `conflict`；基期为零标 `not_applicable`。分位 = 不高于截止值的交易日占比 × 100。年化波动率 = 日简单收益样本标准差 × √242。行业复合收益要求各月同为总市值加权，否则 `conflict`。
+- **结论**：新增评价 `neutral`（估值位置、同行排序等事实性描述）；估值结论附加禁区 `NO_VALUATION_JUDGMENT`。`highlights` 列出首屏关键数字对应的证据 ID；锚点不含数字，回退文案必须包含锚点。
+- **线索**：`clues` 只含公告标题/日期、新闻标题/日期/链接，状态 `unverified_clue`，不是 `Evidence`。
+
 ## 待补
 
 - 其余候选字段的实际映射、单位、快照观察时点和证据定位。

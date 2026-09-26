@@ -21,13 +21,13 @@ class DeepSeek:
         self.url = "https://api.deepseek.com/chat/completions"
         self.model = model
 
-    def _complete(self, system: str, user: str) -> dict:
+    def _complete(self, system: str, user: str, timeout: int = 12) -> dict:
         payload = {"model": self.model, "temperature": 0,
                    "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}]}
         request = Request(self.url, data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
                           headers={"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"},
                           method="POST")
-        with open_direct(request, timeout=12) as response:
+        with open_direct(request, timeout=timeout) as response:
             body = json.load(response)
         content = body["choices"][0]["message"]["content"].strip()
         if content.startswith("```json"):
@@ -53,6 +53,35 @@ class DeepSeek:
         if intent not in INTENTS and intent != "unsupported":
             raise ValueError("LLM returned an unknown intent")
         return intent
+
+    def translate_many(self, conclusions: list[Conclusion], evidence: list[Evidence]) -> list[dict]:
+        by_id = {item.id: item for item in evidence}
+        summary = []
+        for conclusion in conclusions:
+            required = [link["evidence_id"] for link in conclusion.evidence_links
+                        if link["role"] == "supports" or
+                        (conclusion.type == "unknown" and by_id[link["evidence_id"]].kind == "source")]
+            summary.append({
+                "id": conclusion.id, "type": conclusion.type, "assessment": conclusion.assessment,
+                "priority_tier": conclusion.priority["tier"], "fallback_text": conclusion.fallback_text,
+                "required_anchor": conclusion.required_anchor, "must_cite_evidence_ids": required,
+                "cannot_say": [rule.statement for rule in conclusion.cannot_say],
+                "evidence": [{"id": link["evidence_id"], "label": by_id[link["evidence_id"]].label,
+                              "status": by_id[link["evidence_id"]].quality["status"]}
+                             for link in conclusion.evidence_links],
+            })
+        result = self._complete(
+            '你把多条已由程序得出的结论分别改写成简洁、专业的中文解读，不新增事实、因果、数字或投资建议。数据来自一次性固定快照。'
+            '每条正文必须逐字包含该条 required_anchor；只陈述结论本身，不写限制、免责声明或“不能/不代表”类句子；'
+            '正文不得出现任何数字或百分号，也不得出现这些词（即使用于否定）：实时、最新、今天、当下、低估、高估、便宜、偏贵、导致、造成、因为、买入、卖出。'
+            'type 为 unknown 时只说明证据不足或冲突，不作判断。priority_tier 为 driver 的结论可多写一句它对锂周期公司的研究意义，但仍不得引入新事实。'
+            '只输出 JSON 对象 {"items":[{"id":"...","text":"...","evidence_ids":["..."]}]}，每条 evidence_ids 必须恰好包含 must_cite_evidence_ids，可再加该条 evidence 中的其他 ID。',
+            json.dumps(summary, ensure_ascii=False), timeout=30,
+        )
+        items = result.get("items")
+        if not isinstance(items, list):
+            raise ValueError("LLM returned no items")
+        return items
 
     def translate(self, conclusion: Conclusion, evidence: list[Evidence]) -> dict:
         summary = {

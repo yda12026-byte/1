@@ -1,6 +1,6 @@
 # 架构草案
 
-状态：Python 核心后端四类受限财务问题与 72 字段问题路由已实现；部署路径已确定为 CloudBase Git 构建云托管与云存储快照，云上部署尚未执行；Flask 对话页面与 JSON 接口已在本地实现并验收（决策 0015）；其他维度诊断待实现。主标的是天齐锂业（002466.SZ）。
+状态：Python 核心后端四类受限财务问题与 72 字段问题路由已实现；部署路径已确定为 CloudBase Git 构建云托管与云存储快照，云上部署尚未执行；Flask 对话页面与 JSON 接口已在本地实现并验收（决策 0015）；估值、财务趋势、行情、行业四维已接入完整产品快照（决策 0016）；经营质量与风险待实现，事件仅列待核线索。主标的是天齐锂业（002466.SZ）。
 
 ## 技术语言约定
 
@@ -32,6 +32,10 @@ HTML 前端可使用必要的 CSS 与浏览器 JavaScript。服务端、数据�
 ## 已实现：对话页面与接口
 
 `webapp.py` 用 Flask 提供页面（`web/templates`、`web/static`）和接口：`/healthz`、`/api/bootstrap`、`/api/chat`。提问先经服务端有限追问解析（固定短句 + 已校验的上一轮意图，不信任客户端上下文），再走 `route_question`：可执行意图读快照、计算、LLM 受限翻译并返回 `DiagnosisRun`；`planned` 只返回字段缺口；`unsupported` 拒答；快照缺失或校验失败返回 503。规则已判出可执行意图时不调用 LLM 分类。页面用 `textContent` 渲染全部数据，浏览器不接触密钥与快照文件。详见[决策 0015](decisions/0015-web-chat-and-api.md)。
+
+## 已实现：核心四维（决策 0016）
+
+`src/diagnosis/product_snapshot.py` 把一年原始文件标准化为 schema 2 产品快照（报表累计值、扶摇指标、四只股票前复权日线、iFinD 估值截止值与序列、同行估值、申万有色月度窗口、四类锂价、公告/新闻线索），按 242 个交易日过滤并记录原始文件摘要。`src/diagnosis/dimensions.py` 为每个维度生成来源证据、带公式和输入的计算证据及若干结论；`pipeline.diagnose_dimensions` 按路由的 `runnable_dimensions` 运行并各发一次受限 LLM 调用，逐条校验。Web 返回 `runs`（每维一个运行对象）、`gaps`（未接入维度的优先字段）和 `clues`（待核线索）。
 
 ## 待确定事项
 

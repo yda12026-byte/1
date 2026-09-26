@@ -9,8 +9,11 @@ from uuid import uuid4
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT / "tests"))
 
+from diagnosis.product_snapshot import publish_product_snapshot  # noqa: E402
 from diagnosis.snapshot import publish_snapshot  # noqa: E402
+from product_fixture import product_payload  # noqa: E402
 from webapp import EXAMPLES, create_app  # noqa: E402
 
 CACHE = ROOT / "data" / "cache"
@@ -51,8 +54,16 @@ class WebAppTests(unittest.TestCase):
         publish_snapshot(path, {"net_profit": profit, "operating_cash_flow": cash}, created_at=CREATED_AT)
         return path
 
-    def client(self, path: Path | None = None, llm=None):
-        return create_app(snapshot_path=path or self.snapshot(), llm=llm).test_client()
+    def product(self, payload: dict | None = None) -> Path:
+        path = CACHE / f"test_web_product_{uuid4().hex}.json"
+        self.paths.append(path)
+        publish_product_snapshot(path, payload or product_payload())
+        return path
+
+    def client(self, path: Path | None = None, llm=None, product: Path | None = None):
+        # Always pass an explicit product path so tests never read the real data/cache snapshot.
+        return create_app(snapshot_path=path or self.snapshot(), llm=llm,
+                          product_snapshot_path=product or CACHE / f"absent_product_{uuid4().hex}.json").test_client()
 
     def ask(self, client, question, context=None):
         response = client.post("/api/chat", json={"question": question, "context": context})
@@ -66,7 +77,14 @@ class WebAppTests(unittest.TestCase):
         self.assertEqual(data["snapshot"]["created_at"], CREATED_AT)
         self.assertEqual(data["examples"], EXAMPLES)
         self.assertEqual({d["id"]: d["status"] for d in data["dimensions"]}["financial_trend"], "limited")
+        self.assertEqual(data["product_snapshot"]["status"], "missing")
+        self.assertEqual(data["dimension_examples"], [])
         self.assertEqual(client.get("/").status_code, 200)
+        ready = self.client(product=self.product()).get("/api/bootstrap").get_json()
+        statuses = {d["id"]: d["status"] for d in ready["dimensions"]}
+        self.assertEqual([statuses[k] for k in ("valuation", "financial_trend", "market", "industry", "events", "risk")],
+                         ["implemented"] * 4 + ["clues", "planned"])
+        self.assertEqual(ready["product_snapshot"]["trading_days"], 242)
 
     def test_four_examples_return_traceable_runs(self):
         client = self.client()
@@ -112,7 +130,7 @@ class WebAppTests(unittest.TestCase):
 
     def test_planned_dimensions_show_gaps_without_reading_snapshot(self):
         client = self.client(CACHE / f"absent_{uuid4().hex}.json")
-        for question in ("天齐锂业估值高吗？", "天齐锂业全面诊断一下", "2025年净利润同比增长多少？"):
+        for question in ("天齐锂业主要风险有哪些？", "经营质量如何？", "2024年净利润同比增长多少？"):
             status, data = self.ask(client, question)
             self.assertEqual((status, data["status"]), (200, "not_implemented"), question)
             self.assertNotIn("run", data)
@@ -194,6 +212,34 @@ class WebAppTests(unittest.TestCase):
         for marker in ("API_KEY", "Bearer", "AUTH_TOKEN", str(path), str(CACHE), "DIAGNOSIS_SNAPSHOT_PATH",
                        "tcloudbaseapp", "myqcloud", "tcb.qcloud"):
             self.assertNotIn(marker, text)
+
+    def test_dimension_questions_return_runs_gaps_and_clues(self):
+        client = self.client(product=self.product())
+        status, data = self.ask(client, "天齐锂业估值处于什么位置？")
+        self.assertEqual((status, data["status"]), (200, "ok"))
+        self.assertEqual([run["route"]["dimension"] for run in data["runs"]], ["valuation"])
+        self.assertEqual((data["gaps"], data["clues"]), ([], None))
+        self.assertEqual(data["snapshot"]["created_at"], product_payload()["created_at"])
+        _, overview = self.ask(client, "天齐锂业全面诊断一下")
+        self.assertEqual([run["route"]["dimension"] for run in overview["runs"]],
+                         ["financial_trend", "valuation", "market", "industry"])
+        self.assertTrue(overview["gaps"])
+        self.assertTrue({gap["dimension"] for gap in overview["gaps"]} <= {"operating_quality", "events", "risk"})
+        self.assertEqual(overview["clues"]["status"], "unverified_clue")
+        _, events = self.ask(client, "天齐锂业近期有哪些公告？")
+        self.assertEqual(events["status"], "not_implemented")
+        self.assertEqual(events["clues"]["total"], {"notices": 2, "news": 2})
+
+    def test_dimension_question_without_product_snapshot_is_unavailable_but_narrow_questions_work(self):
+        client = self.client()
+        status, data = self.ask(client, "天齐锂业估值处于什么位置？")
+        self.assertEqual((status, data["status"], data["snapshot"]["status"]), (503, "snapshot_unavailable", "missing"))
+        self.assertEqual(self.ask(client, EXAMPLES[0])[1]["status"], "ok")
+        path = self.product()
+        text = path.read_text(encoding="utf-8").replace('"pb_mrq":2', '"pb_mrq":9')
+        path.write_text(text, encoding="utf-8")
+        status, data = self.ask(self.client(product=path), "天齐锂业估值处于什么位置？")
+        self.assertEqual((status, data["snapshot"]["status"]), (503, "invalid"))
 
 
 if __name__ == "__main__":

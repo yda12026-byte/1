@@ -6,12 +6,24 @@ let context = null;
 
 const labels = {
   fact: '事实', inference: '推断', unknown: '未知',
-  positive: '正面', negative: '负面', mixed: '矛盾',
+  positive: '正面', negative: '负面', mixed: '矛盾', neutral: '中性',
   driver: '核心驱动', support: '支持证据', context: '背景', low: '低优先级',
   valid: '有效', missing: '缺失', stale: '过期', conflict: '冲突',
   error: '获取失败', not_applicable: '不适用'
 };
+const metricNames = { net_profit: '净利润', operating_cash_flow: '经营活动现金流净额', cash_to_profit_ratio: '经营现金流 / 净利润' };
+const scopeNames = {
+  subject: '证券', period_basis: '期间口径', consolidation: '合并口径', unit_conversion: '单位换算', adjust: '复权',
+  numerator: '分子', denominator: '分母', filter: '日期过滤', weighting: '加权方式', basis: '口径'
+};
+const basisNames = { cumulative: '累计', annual: '年报', consolidated: '合并报表', forward: '前复权', program_calculation: '程序计算' };
 
+function beijing(iso) {
+  const date = new Date(iso);
+  if (!iso || Number.isNaN(date.getTime())) return iso || '未知';
+  const text = new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).format(date);
+  return `${text.replaceAll('/', '-')}（北京时间）`;
+}
 function el(tag, className, value) {
   const node = document.createElement(tag);
   if (className) node.className = className;
@@ -26,90 +38,141 @@ function addMessage(content, kind = 'assistant') {
   if (typeof content === 'string') addText(article, 'div', '', content); else article.append(content);
   messages.append(article); scrollDown(); return article;
 }
-const metricNames = { net_profit: '净利润', operating_cash_flow: '经营活动现金流净额', cash_to_profit_ratio: '经营现金流 / 净利润' };
-function beijing(iso) {
-  const date = new Date(iso);
-  if (!iso || Number.isNaN(date.getTime())) return iso || '未知';
-  const text = new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).format(date);
-  return `${text.replaceAll('/', '-')}（北京时间）`;
-}
 function detailPair(grid, name, value) {
   if (value === undefined || value === null || value === '') return;
   addText(grid, 'dt', '', name); addText(grid, 'dd', '', value);
 }
-function renderEvidence(item, byId) {
-  const details = el('details', 'evidence'); details.id = `evidence-${item.id.replace(/[^\w-]/g, '-')}`;
+function evidenceName(item) { return item.label || metricNames[item.metric_id] || item.metric_id; }
+function evidenceValue(item) { return item.value === null ? '未取得可用数值' : `${item.value} ${item.unit || ''}`.trim(); }
+function domId(runId, evidenceId) { return `ev-${runId}-${evidenceId}`.replace(/[^\w-]/g, '-'); }
+function timeText(time) {
+  if (!time) return '';
+  if (time.period_end) return `报告期末 ${time.period_end}${time.base_period_end ? `（基期 ${time.base_period_end}）` : ''}`;
+  if (time.date) return `日期 ${time.date}`;
+  if (time.start) return `${time.start} 至 ${time.end}`;
+  return '';
+}
+function renderEvidence(item, byId, runId) {
+  const details = el('details', 'evidence'); details.id = domId(runId, item.id);
   const summary = el('summary');
-  addText(summary, 'span', '', item.metric_id === 'cash_to_profit_ratio' ? '经营现金流 / 净利润（计算）' : item.metric_id === 'net_profit' ? '净利润（来源）' : '经营活动现金流净额（来源）');
+  addText(summary, 'span', '', `${evidenceName(item)}${item.kind === 'computed' ? '（计算）' : ''}`);
   addText(summary, 'span', `evidence-state ${item.quality.status === 'valid' ? '' : 'bad'}`, labels[item.quality.status] || item.quality.status);
   details.append(summary);
   const body = el('div', 'evidence-body'), grid = el('dl', 'evidence-grid');
-  detailPair(grid, '原始值 / 结果', item.value === null ? '未取得可用数值' : `${item.value} ${item.unit || ''}`);
-  detailPair(grid, '报告期末', item.time?.period_end || '未核准');
+  detailPair(grid, '数值', evidenceValue(item));
+  detailPair(grid, '时间', timeText(item.time));
   detailPair(grid, '快照下载', beijing(item.time?.fetched_at));
-  detailPair(grid, '统计口径', [item.scope?.period_basis, item.scope?.consolidation].filter(Boolean).join(' / '));
+  for (const [key, value] of Object.entries(item.scope || {})) detailPair(grid, scopeNames[key] || key, basisNames[value] || value);
   detailPair(grid, '证据状态', labels[item.quality.status] || item.quality.status);
   detailPair(grid, '状态原因', item.quality.reason);
   detailPair(grid, '优先级', `${labels[item.priority.tier] || item.priority.tier} · ${item.priority.field_id} · ${item.priority.reason}`);
-  detailPair(grid, '配置版本', item.priority.profile_version);
   if (item.source) {
     detailPair(grid, '来源', item.source.provider);
     detailPair(grid, '接口 / 字段', `${item.source.endpoint} · ${item.source.field}`);
     detailPair(grid, '查询定位', item.source.query_ref);
   }
   if (item.calculation) {
-    detailPair(grid, '计算公式', item.calculation.formula_id === 'operating_cash_flow_div_net_profit' ? '经营活动现金流净额 ÷ 净利润；净利润须大于零，结果保留两位小数' : item.calculation.formula_id);
-    detailPair(grid, '公式版本', item.calculation.formula_version);
+    const calc = item.calculation;
+    detailPair(grid, '计算公式', calc.formula_text || (calc.formula_id === 'operating_cash_flow_div_net_profit' ? '经营活动现金流净额 ÷ 净利润；净利润须大于零，结果保留两位小数' : calc.formula_id));
+    detailPair(grid, '公式版本', `${calc.formula_id} v${calc.formula_version}`);
+    if (calc.summary) detailPair(grid, '序列摘要', Object.entries(calc.summary).map(([k, v]) => `${{ min: '最低', max: '最高', median: '中位数', n: '样本数', unit: '单位' }[k] || k} ${v}`).join('；'));
     addText(grid, 'dt', '', '输入证据');
     const dd = el('dd');
-    for (const id of item.calculation.input_evidence_ids || []) {
-      const button = addText(dd, 'button', 'input-link', metricNames[byId[id]?.metric_id] || id);
+    for (const id of calc.input_evidence_ids || []) {
+      const input = byId[id];
+      const button = addText(dd, 'button', 'input-link', input ? `${evidenceName(input)}：${evidenceValue(input)}` : id);
       button.type = 'button';
-      button.addEventListener('click', () => { const target = document.getElementById(`evidence-${id.replace(/[^\w-]/g, '-')}`); if (target) { target.open = true; target.scrollIntoView({ behavior: 'smooth', block: 'center' }); } });
+      button.addEventListener('click', () => { const target = document.getElementById(domId(runId, id)); if (target) { target.open = true; target.scrollIntoView({ behavior: 'smooth', block: 'center' }); } });
     }
     grid.append(dd);
   }
   body.append(grid); details.append(body); return details;
 }
-function renderRun(payload) {
-  const run = payload.run, conclusion = run.conclusions[0], byId = Object.fromEntries(run.evidence.map(item => [item.id, item]));
+function renderConclusion(conclusion, byId, runId, snapshot) {
   const card = el('div', 'answer'), header = el('div', 'answer-header');
   addText(header, 'span', `tag ${conclusion.assessment}`, labels[conclusion.assessment] || conclusion.assessment);
   addText(header, 'span', 'tag type', labels[conclusion.type] || conclusion.type);
   addText(header, 'span', 'tag priority', labels[conclusion.priority.tier] || conclusion.priority.tier);
   card.append(header);
   addText(card, 'p', 'answer-text', conclusion.text);
-  addText(card, 'div', 'answer-meta', `固定快照 · 下载于 ${beijing(payload.snapshot.created_at)} · 报告期见下方证据 · ${conclusion.validation === 'passed' ? '受限模型文案已校验' : '程序回退文案'}`);
-  if (payload.resolved_question) addText(card, 'div', 'answer-note', `按受限追问解析为：${payload.resolved_question}`);
+  if (conclusion.highlights?.length) {
+    const chips = el('div', 'figures');
+    for (const id of conclusion.highlights) {
+      const item = byId[id]; if (!item) continue;
+      const chip = el('button', `figure ${item.quality.status === 'valid' ? '' : 'bad'}`); chip.type = 'button';
+      addText(chip, 'span', 'figure-label', evidenceName(item));
+      addText(chip, 'strong', '', item.value === null ? (labels[item.quality.status] || '—') : `${item.value} ${item.unit || ''}`);
+      chip.addEventListener('click', () => { const target = document.getElementById(domId(runId, id)); if (target) { target.open = true; target.scrollIntoView({ behavior: 'smooth', block: 'center' }); } });
+      chips.append(chip);
+    }
+    card.append(chips);
+  }
+  addText(card, 'div', 'answer-meta', `固定快照 · 下载于 ${beijing(snapshot.created_at)} · ${conclusion.validation === 'passed' ? '受限模型文案已校验' : '程序回退文案'}`);
   if (conclusion.validation_failures?.length) addText(card, 'div', 'answer-note', `模型文案回退原因：${conclusion.validation_failures.join('、')}`);
   const list = el('div', 'evidence-list');
-  for (const link of conclusion.evidence_links) { const item = byId[link.evidence_id]; if (item) list.append(renderEvidence(item, byId)); }
+  for (const link of conclusion.evidence_links) { const item = byId[link.evidence_id]; if (item) list.append(renderEvidence(item, byId, runId)); }
   card.append(list);
   if (conclusion.limitations?.length) addText(card, 'div', 'answer-note', `限制：${conclusion.limitations.join('；')}`);
-  addMessage(card);
+  return card;
 }
-function renderPlanned(payload) {
+function renderGaps(fields, title) {
   const card = el('div', 'answer');
   const header = el('div', 'answer-header'); addText(header, 'span', 'tag unknown', '待接入'); card.append(header);
-  addText(card, 'p', 'answer-text', payload.message);
-  addText(card, 'div', 'answer-meta', `涉及 ${payload.route.dimensions.length} 个维度、${payload.route.field_ids.length} 个候选字段。下方仅显示优先核准项，不构成有效诊断。`);
-  const fields = el('div', 'planned-fields');
-  for (const field of payload.missing_evidence) {
+  addText(card, 'p', 'answer-text', title);
+  const box = el('div', 'planned-fields');
+  for (const field of fields) {
     const row = el('div', 'planned-field'); addText(row, 'strong', '', `${field.label} · ${labels[field.priority_tier] || field.priority_tier}`);
     addText(row, 'span', '', `候选状态：${field.candidate_status}；产品状态：数据或计算待接入；预期来源：${String(field.source_ref || '未定').replaceAll('`', '')}`);
-    fields.append(row);
+    box.append(row);
   }
-  card.append(fields); addMessage(card);
+  card.append(box); return card;
+}
+function renderClues(clues) {
+  const card = el('div', 'answer');
+  const header = el('div', 'answer-header'); addText(header, 'span', 'tag unknown', '待核线索'); card.append(header);
+  addText(card, 'p', 'answer-text', '以下为公告与新闻检索线索，未逐条核对原文，不构成事件结论。');
+  addText(card, 'div', 'answer-note', `${clues.note}。共 ${clues.total.notices} 条公告、${clues.total.news} 条新闻，此处按日期列出最近各 ${clues.notices.length}/${clues.news.length} 条。`);
+  for (const [title, rows] of [['公告标题（iFinD 检索，无原文链接）', clues.notices], ['新闻（第三方资讯）', clues.news]]) {
+    addText(card, 'div', 'clue-title', title);
+    const list = el('ul', 'clue-list');
+    for (const row of rows) {
+      const li = el('li'); addText(li, 'span', 'clue-date', row.date);
+      if (row.url) { const a = addText(li, 'a', '', row.title); a.href = row.url; a.target = '_blank'; a.rel = 'noopener noreferrer'; }
+      else addText(li, 'span', '', row.title);
+      list.append(li);
+    }
+    card.append(list);
+  }
+  return card;
+}
+function renderRuns(payload) {
+  const wrap = el('div', 'runs');
+  const runs = payload.runs || [payload.run];
+  if (payload.resolved_question) addText(wrap, 'div', 'answer-note', `按受限追问解析为：${payload.resolved_question}`);
+  for (const run of runs) {
+    const byId = Object.fromEntries(run.evidence.map(item => [item.id, item]));
+    if (runs.length > 1 || run.route.dimension_label) addText(wrap, 'h3', 'run-title', run.route.dimension_label || '财务诊断');
+    for (const conclusion of run.conclusions) wrap.append(renderConclusion(conclusion, byId, run.id, payload.snapshot));
+  }
+  if (payload.clues) { addText(wrap, 'h3', 'run-title', '重要事件'); wrap.append(renderClues(payload.clues)); }
+  if (payload.gaps?.length) { addText(wrap, 'h3', 'run-title', '尚未接入的维度'); wrap.append(renderGaps(payload.gaps, '经营质量、风险等维度的优先字段尚未核准，以下仅列证据缺口，不构成诊断。')); }
+  addMessage(wrap);
+}
+function renderPlanned(payload) {
+  const wrap = el('div', 'runs');
+  wrap.append(renderGaps(payload.missing_evidence, `${payload.message} 涉及 ${payload.route.dimensions.length} 个维度、${payload.route.field_ids.length} 个候选字段；下方仅显示优先核准项。`));
+  if (payload.clues) wrap.append(renderClues(payload.clues));
+  addMessage(wrap);
 }
 async function submitQuestion(question) {
   if (!question.trim() || send.disabled) return;
   addMessage(question, 'user'); input.value = ''; send.disabled = true;
-  const pending = addMessage('正在核对路由与固定快照…');
+  const pending = addMessage('正在核对路由、固定快照并计算证据…');
   try {
     const response = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question, context }) });
     const payload = await response.json(); pending.remove();
     context = payload.context || null;
-    if (payload.status === 'ok') renderRun(payload);
+    if (payload.status === 'ok') renderRuns(payload);
     else if (payload.status === 'not_implemented') renderPlanned(payload);
     else addMessage(payload.message || '当前无法完成诊断。');
   } catch (_) { pending.remove(); context = null; addMessage('服务连接失败，请稍后重试。'); }
@@ -120,10 +183,15 @@ input.addEventListener('keydown', event => { if (event.key === 'Enter' && !event
 
 fetch('/api/bootstrap').then(response => response.json()).then(data => {
   const banner = document.querySelector('#snapshot-banner');
-  if (data.snapshot.status === 'fixed') banner.textContent = `固定快照已连接 · 下载时间 ${beijing(data.snapshot.created_at)} · ID ${data.snapshot.id} · 观察区间 ${data.window.start} 至 ${data.window.end}`;
+  const product = data.product_snapshot;
+  if (product.status === 'fixed') banner.textContent = `完整产品快照已连接 · 下载时间 ${beijing(product.created_at)} · ID ${product.id} · ${product.trading_days} 个交易日 · 观察区间 ${data.window.start} 至 ${data.window.end}`;
+  else if (data.snapshot.status === 'fixed') { banner.classList.add('unavailable'); banner.textContent = `${product.message} 两字段快照仍可回答四类财务问题（下载时间 ${beijing(data.snapshot.created_at)}）。`; }
   else { banner.classList.add('unavailable'); banner.textContent = data.snapshot.message; }
   const dimensions = document.querySelector('#dimensions');
-  for (const dim of data.dimensions) { const row = el('div', 'dimension'); addText(row, 'span', '', dim.label); addText(row, 'span', `dim-status ${dim.status}`, dim.status === 'limited' ? '四类问题' : '待接入'); dimensions.append(row); }
+  const statusText = { implemented: '可诊断', limited: '四类问题', clues: '待核线索', planned: '待接入' };
+  for (const dim of data.dimensions) { const row = el('div', 'dimension'); addText(row, 'span', '', dim.label); addText(row, 'span', `dim-status ${dim.status}`, statusText[dim.status] || dim.status); dimensions.append(row); }
   const examples = document.querySelector('#examples');
-  for (const question of data.examples) { const button = addText(examples, 'button', 'example', question); button.type = 'button'; button.addEventListener('click', () => submitQuestion(question)); }
+  for (const question of [...(data.dimension_examples || []), ...data.examples]) { const button = addText(examples, 'button', 'example', question); button.type = 'button'; button.addEventListener('click', () => submitQuestion(question)); }
+  const pill = document.querySelector('.live-pill');
+  if (pill && product.status === 'fixed') pill.lastChild.textContent = ' 四维诊断可运行';
 }).catch(() => { const banner = document.querySelector('#snapshot-banner'); banner.classList.add('unavailable'); banner.textContent = '服务状态暂时无法读取。'; });

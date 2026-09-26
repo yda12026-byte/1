@@ -12,20 +12,30 @@ from flask import Flask, jsonify, render_template, request
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "src"))
 
-from diagnosis.catalog import DIMENSIONS, EXECUTABLE_FIELDS, SUBJECT, WINDOW  # noqa: E402
+from diagnosis.catalog import DIMENSION_EXECUTABLE, DIMENSIONS, EXECUTABLE_FIELDS, SUBJECT, WINDOW  # noqa: E402
 from diagnosis.deepseek import DeepSeek  # noqa: E402
 from diagnosis.net import load_env  # noqa: E402
-from diagnosis.pipeline import diagnose_profit_cash  # noqa: E402
+from diagnosis.pipeline import diagnose_dimensions, diagnose_profit_cash  # noqa: E402
+from diagnosis.product_snapshot import load_product_snapshot  # noqa: E402
 from diagnosis.routing import route_question  # noqa: E402
 from diagnosis.snapshot import load_snapshot  # noqa: E402
 
 DEFAULT_SNAPSHOT = ROOT / "data" / "cache" / "profit_cash_002466.json"
+PRODUCT_SNAPSHOT_NAME = "product_snapshot_002466.json"
 _AUTO_LLM = object()
 EXAMPLES = [
     "天齐锂业的净利润是正还是负？",
     "天齐锂业的经营活动现金流净额为正吗？",
     "天齐锂业的经营现金流与净利润的比值是多少？",
     "天齐锂业的利润和经营现金流匹配吗？",
+]
+DIMENSION_EXAMPLES = [
+    "天齐锂业估值处于什么位置？",
+    "天齐锂业近一年财务趋势如何？",
+    "天齐锂业近一年股价表现和波动如何？",
+    "锂价和同行比较情况如何？",
+    "天齐锂业全面诊断一下",
+    "天齐锂业近期有哪些公告？",
 ]
 FOLLOWUPS = {
     "那现金流呢": "operating_cash_flow_status",
@@ -38,6 +48,8 @@ FOLLOWUPS = {
 }
 PAIR_CONTEXT = {"profit_cash_ratio", "profit_cash_alignment"}
 AMBIGUOUS = re.compile(r"^(?:那|那么|它|它们|这个|这些|上面|再说说|继续|为什么|原因)(?:呢|怎么样|如何|\??)?$")
+GAP_KEYS = ("id", "label", "dimension", "source_ref", "candidate_status", "product_state", "priority_tier",
+            "priority_reason", "kind", "formula_id", "input_fields")
 
 
 def _snapshot_state(path: Path) -> dict:
@@ -48,6 +60,25 @@ def _snapshot_state(path: Path) -> dict:
     except (ValueError, KeyError, TypeError, OSError):
         return {"status": "invalid", "message": "固定快照校验失败；诊断暂不可用。"}
     return {"status": "fixed", "id": snapshot["id"], "created_at": snapshot["created_at"]}
+
+
+def _product_state(path: Path) -> tuple[dict, dict | None]:
+    try:
+        document = load_product_snapshot(path)
+    except FileNotFoundError:
+        return {"status": "missing", "message": "完整产品快照尚未提供；估值、财务趋势、行情与行业维度暂不可用。"}, None
+    except (ValueError, KeyError, TypeError, OSError):
+        return {"status": "invalid", "message": "完整产品快照校验失败；相关维度暂不可用。"}, None
+    return {"status": "fixed", "id": document["snapshot_id"], "created_at": document["created_at"],
+            "trading_days": document["trading_calendar"]["count"]}, document
+
+
+def _clues(document: dict | None, limit: int = 12) -> dict | None:
+    if document is None:
+        return None
+    clues = document["clues"]
+    return {"status": clues["status"], "note": clues["note"], "notices": clues["notices"][:limit],
+            "news": clues["news"][:limit], "total": {"notices": len(clues["notices"]), "news": len(clues["news"])}}
 
 
 def _resolve_question(question: str, context: object) -> tuple[str | None, str | None]:
@@ -67,11 +98,14 @@ def _resolve_question(question: str, context: object) -> tuple[str | None, str |
     return question, None
 
 
+def _gap_fields(route: dict, skip_dimensions: tuple[str, ...] = ()) -> list[dict]:
+    return [{key: field.get(key) for key in GAP_KEYS}
+            for field in route["fields"] if field["id"] in route["display_plan"]["default_field_ids"]
+            and field["dimension"] not in skip_dimensions]
+
+
 def _planned_payload(route: dict) -> dict:
-    fields = [{key: field.get(key) for key in ("id", "label", "dimension", "source_ref",
-                                              "candidate_status", "product_state", "priority_tier",
-                                              "priority_reason", "kind", "formula_id", "input_fields")}
-              for field in route["fields"] if field["id"] in route["display_plan"]["default_field_ids"]]
+    fields = _gap_fields(route)
     return {"status": "not_implemented", "message": "数据或计算待接入，当前不能生成金融结论。",
             "route": {"intent": route["intent"], "dimensions": route["dimensions"],
                       "execution_status": route["execution_status"], "field_ids": route["field_ids"],
@@ -79,7 +113,8 @@ def _planned_payload(route: dict) -> dict:
             "missing_evidence": fields, "context": None}
 
 
-def create_app(*, snapshot_path: Path | None = None, llm=_AUTO_LLM) -> Flask:
+def create_app(*, snapshot_path: Path | None = None, product_snapshot_path: Path | None = None,
+               llm=_AUTO_LLM) -> Flask:
     app = Flask(__name__, template_folder="web/templates", static_folder="web/static")
     app.config["MAX_CONTENT_LENGTH"] = 16 * 1024
     env = load_env(ROOT / ".env") if (ROOT / ".env").exists() else dict(os.environ)
@@ -87,6 +122,11 @@ def create_app(*, snapshot_path: Path | None = None, llm=_AUTO_LLM) -> Flask:
     path = Path(configured_path) if configured_path and snapshot_path is None else snapshot_path or DEFAULT_SNAPSHOT
     if not path.is_absolute():
         path = ROOT / path
+    configured_product = env.get("DIAGNOSIS_PRODUCT_SNAPSHOT_PATH", "")
+    product_path = product_snapshot_path or (Path(configured_product) if configured_product
+                                             else path.with_name(PRODUCT_SNAPSHOT_NAME))
+    if not product_path.is_absolute():
+        product_path = ROOT / product_path
     if llm is _AUTO_LLM:
         llm = DeepSeek(env["DEEPSEEK_API_KEY"], env.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com"),
                        env.get("DEEPSEEK_MODEL", "deepseek-flash")) if env.get("DEEPSEEK_API_KEY") else None
@@ -101,12 +141,36 @@ def create_app(*, snapshot_path: Path | None = None, llm=_AUTO_LLM) -> Flask:
 
     @app.get("/api/bootstrap")
     def bootstrap():
+        product, _ = _product_state(product_path)
+        ready = product["status"] == "fixed"
+
+        def status(key: str) -> str:
+            if key in DIMENSION_EXECUTABLE:
+                return "implemented" if ready else "limited" if key == "financial_trend" else "planned"
+            return "clues" if key == "events" and ready else "planned"
+
         return jsonify({"subject": {"code": SUBJECT, "name": "天齐锂业"}, "window": WINDOW,
-                        "examples": EXAMPLES, "dimensions": [{"id": key, "label": value,
-                                                                  "status": "limited" if key == "financial_trend" else "planned"}
-                                                                 for key, value in DIMENSIONS.items()],
-                        "snapshot": _snapshot_state(path),
-                        "scope": "仅四类财务问法可运行；其他维度展示字段与证据缺口。"})
+                        "examples": EXAMPLES, "dimension_examples": DIMENSION_EXAMPLES if ready else [],
+                        "dimensions": [{"id": key, "label": value, "status": status(key)} for key, value in DIMENSIONS.items()],
+                        "snapshot": _snapshot_state(path), "product_snapshot": product,
+                        "scope": "估值、财务趋势、行情特征、行业位置可诊断；重要事件仅列待核检索线索；经营质量与风险展示证据缺口。"})
+
+    def dimension_payload(resolved: str, question: str, route: dict):
+        state, document = _product_state(product_path)
+        if document is None:
+            return jsonify({"status": "snapshot_unavailable", "snapshot": state, "message": state["message"],
+                            "context": None}), 503
+        try:
+            runs = diagnose_dimensions(resolved, route, lambda: document, llm)
+        except (ValueError, KeyError, TypeError, IndexError, ArithmeticError):
+            return jsonify({"status": "snapshot_unavailable", "snapshot": state,
+                            "message": "完整产品快照的计算校验失败；诊断暂不可用。", "context": None}), 503
+        return jsonify({"status": "ok", "runs": [run.to_dict() for run in runs], "snapshot": state,
+                        "gaps": _gap_fields(route, DIMENSION_EXECUTABLE) if route["execution_status"] == "partial" else [],
+                        "clues": _clues(document) if "events" in route["dimensions"] else None,
+                        "route": {"intent": route["intent"], "dimensions": route["dimensions"],
+                                  "execution_status": route["execution_status"]},
+                        "context": None, "resolved_question": resolved if resolved != question else None})
 
     @app.post("/api/chat")
     def chat():
@@ -123,8 +187,13 @@ def create_app(*, snapshot_path: Path | None = None, llm=_AUTO_LLM) -> Flask:
         if route["execution_status"] == "unsupported":
             return jsonify({"status": "unsupported_question", "message": "当前只提供受限财务诊断与证据缺口查询，请改用完整研究问题；不提供买卖或确定性涨跌建议。",
                             "context": None})
+        if route["execution_status"] in ("implemented", "partial") and route["intent"] not in EXECUTABLE_FIELDS:
+            return dimension_payload(resolved, question, route)
         if route["execution_status"] == "planned":
-            return jsonify(_planned_payload(route))
+            payload = _planned_payload(route)
+            if "events" in route["dimensions"]:
+                payload["clues"] = _clues(_product_state(product_path)[1])
+            return jsonify(payload)
         state = _snapshot_state(path)
         if state["status"] != "fixed":
             return jsonify({"status": "snapshot_unavailable", "snapshot": state,
